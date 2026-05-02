@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Price List Lambda with Spring Cloud Function and Java 21
+
+Globals:
+  Function:
+    Runtime: java21
+    MemorySize: 1024
+    Timeout: 30
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        SPRING_CLOUD_FUNCTION_DEFINITION: listPrice
+
+Resources:
+  PriceListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Zip
+      FunctionName: price-list-lambda-sam
+      Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
+      CodeUri: target/price-list-lambda-0.0.1-SNAPSHOT-aws.jar
+      Description: Price list Lambda using Spring Cloud Function
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        ListPriceApi:
+          Type: Api
+          Properties:
+            Path: /prices
+            Method: post
+Outputs:
+  PriceListFunctionName:
+    Description: Lambda function name
+    Value: !Ref PriceListFunction
+
+  PriceListFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt PriceListFunction.Arn
