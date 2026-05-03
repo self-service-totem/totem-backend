@@ -6,13 +6,14 @@ Globals:
   Function:
     Runtime: java21
     MemorySize: 1024
-    Timeout: 30
+    Timeout: 90
     Architectures:
       - x86_64
     Environment:
       Variables:
         # AWS/API Gateway function. Local Spring execution keeps application.yml=listPrice.
         SPRING_CLOUD_FUNCTION_DEFINITION: listPriceApiGateway
+        SPRING_MAIN_WEB_APPLICATION_TYPE: none
 
 Resources:
   PriceListHttpApi:

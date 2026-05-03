@@ -2,7 +2,6 @@ package com.ffresco.pricelist.infrastructure.config;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ffresco.pricelist.application.port.in.GetPriceListUseCase;
 import com.ffresco.pricelist.application.port.out.LoadProductsPort;
 import com.ffresco.pricelist.application.service.GetPriceListService;
@@ -45,8 +44,9 @@ public class ApplicationConfig {
         return listPriceFunction;
     }
 
+
     @Bean
-    public ApiGatewayResponseFactory apiGatewayResponseFactory(ObjectMapper objectMapper) {
+    public ApiGatewayResponseFactory apiGatewayResponseFactory(com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         return new ApiGatewayResponseFactory(objectMapper);
     }
 
@@ -62,10 +62,5 @@ public class ApplicationConfig {
             ApiGatewayResponseFactory responseFactory
     ) {
         return new ListPriceApiGatewayAdapter(listPriceFunction, responseFactory);
-    }
-
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
     }
 }

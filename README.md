@@ -283,3 +283,34 @@ POST /products
 ```text
 org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
 ```
+
+
+## Troubleshooting timeout en SAM local
+
+Si `sam local invoke` muestra `No response from invoke container` o timeout, primero regenerá el JAR y subí el timeout local:
+
+```bash
+mvn clean package
+sam build --cached=false
+sam local invoke PriceListFunction -e events/api-gateway-get-price-list.json --debug
+```
+
+El template usa `Timeout: 90` y `SPRING_MAIN_WEB_APPLICATION_TYPE=none` para que Lambda no intente levantar un servidor web. El endpoint HTTP local directo se usa solo con el perfil `local`:
+
+```bash
+mvn -Plocal spring-boot:run
+```
+
+## Knowledge base files
+
+The project includes reusable MD files under `docs/`:
+
+```text
+docs/01-architecture-map.md
+docs/02-add-new-function-checklist.md
+docs/03-local-vs-aws-testing.md
+docs/04-troubleshooting.md
+docs/05-chatgpt-context.md
+```
+
+Use `docs/05-chatgpt-context.md` as the base context when asking ChatGPT to add new backend functions.

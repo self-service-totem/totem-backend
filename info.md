@@ -41,7 +41,7 @@ export DOCKER_HOST=unix:///Users/fernandofresco/.colima/default/docker.sock
 ```
 ##### Invocar la lambda
 ```bash
-sam local invoke PriceListFunction --event events/list-price.json
+sam local invoke PriceListFunction --event events/list-price-local.json
 ```
 ##### Invocar a traves de API Gateway local
 ```bash
