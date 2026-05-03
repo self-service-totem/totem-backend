@@ -8,11 +8,11 @@ import java.util.function.Function;
 
 public class ListPriceApiGatewayAdapter implements Function<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
-    private final ListPriceFunction listPriceFunction;
+    private final Function<ListPriceRequest, ListPriceResponse> listPriceFunction;
     private final ApiGatewayResponseFactory responseFactory;
 
     public ListPriceApiGatewayAdapter(
-            ListPriceFunction listPriceFunction,
+            Function<ListPriceRequest, ListPriceResponse> listPriceFunction,
             ApiGatewayResponseFactory responseFactory
     ) {
         this.listPriceFunction = listPriceFunction;
@@ -23,10 +23,7 @@ public class ListPriceApiGatewayAdapter implements Function<APIGatewayV2HTTPEven
     public APIGatewayV2HTTPResponse apply(APIGatewayV2HTTPEvent event) {
         try {
             String priceListId = extractPriceListId(event);
-
-            var request = new ListPriceRequest(priceListId);
-            var response = listPriceFunction.apply(request);
-
+            var response = listPriceFunction.apply(new ListPriceRequest(priceListId));
             return responseFactory.ok(response);
 
         } catch (IllegalArgumentException e) {

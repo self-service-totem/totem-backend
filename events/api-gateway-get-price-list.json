@@ -1,0 +1,32 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /price-lists/{priceListId}",
+  "rawPath": "/price-lists/default",
+  "rawQueryString": "",
+  "headers": {
+    "accept": "application/json",
+    "host": "localhost"
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "local-api",
+    "domainName": "localhost",
+    "domainPrefix": "localhost",
+    "http": {
+      "method": "GET",
+      "path": "/price-lists/default",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "sam-local"
+    },
+    "requestId": "local-request",
+    "routeKey": "GET /price-lists/{priceListId}",
+    "stage": "dev",
+    "time": "02/May/2026:00:00:00 +0000",
+    "timeEpoch": 1777680000000
+  },
+  "pathParameters": {
+    "priceListId": "default"
+  },
+  "isBase64Encoded": false
+}

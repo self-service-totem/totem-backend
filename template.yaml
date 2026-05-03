@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Price List Lambda with Spring Cloud Function and Java 21
+Description: Price List Lambda with Spring Cloud Function, Java 21 and API Gateway HTTP API
 
 Globals:
   Function:
@@ -11,9 +11,24 @@ Globals:
       - x86_64
     Environment:
       Variables:
-        SPRING_CLOUD_FUNCTION_DEFINITION: listPrice
+        # AWS/API Gateway function. Local Spring execution keeps application.yml=listPrice.
+        SPRING_CLOUD_FUNCTION_DEFINITION: listPriceApiGateway
 
 Resources:
+  PriceListHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: dev
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - OPTIONS
+
   PriceListFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -25,11 +40,14 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
-        ListPriceApi:
-          Type: Api
+        GetPriceList:
+          Type: HttpApi
           Properties:
-            Path: /prices
-            Method: post
+            ApiId: !Ref PriceListHttpApi
+            Path: /price-lists/{priceListId}
+            Method: GET
+            PayloadFormatVersion: '2.0'
+
 Outputs:
   PriceListFunctionName:
     Description: Lambda function name
@@ -38,3 +56,7 @@ Outputs:
   PriceListFunctionArn:
     Description: Lambda function ARN
     Value: !GetAtt PriceListFunction.Arn
+
+  PriceListApiUrl:
+    Description: API Gateway HTTP API URL
+    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/dev/price-lists/default"

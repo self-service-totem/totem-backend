@@ -1,2 +1,11 @@
-##others
+# Build output
+target/
+.aws-sam/
+
+# IDE
+.idea/
+*.iml
+
+# OS
 .DS_Store
+__MACOSX/

@@ -1,4 +1,6 @@
 spring:
   cloud:
     function:
+      # Local/default function.
+      # SAM/AWS overrides this value with SPRING_CLOUD_FUNCTION_DEFINITION=listPriceApiGateway.
       definition: listPrice

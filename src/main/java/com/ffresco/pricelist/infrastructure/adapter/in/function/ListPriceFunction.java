@@ -20,4 +20,3 @@ public class ListPriceFunction implements Function<ListPriceRequest, ListPriceRe
     }
 }
 
-//TODO: crear un make para hacer subida a aws
