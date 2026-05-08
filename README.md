@@ -1,6 +1,28 @@
 # Totem Backend Price List Lambda
 
-Base project for an AWS Lambda using Spring Cloud Function, Java 21, AWS SAM, API Gateway HTTP API and Hexagonal Architecture.
+Base project for an AWS Lambda using Spring Cloud Function, Java 21, AWS SAM, API Gateway HTTP API, JSON:API responses and Hexagonal Architecture.
+
+## Current status
+
+- AWS Lambda is deployed by SAM.
+- API Gateway HTTP API is deployed by SAM.
+- API Gateway route works remotely:
+
+```text
+GET /dev/price-lists/{priceListId}
+```
+
+- Local fast testing uses Spring Cloud Function Web:
+
+```text
+POST /listPrice
+```
+
+- AWS execution uses one generic API Gateway router:
+
+```text
+apiGatewayRouter
+```
 
 ## Package map
 
@@ -27,10 +49,19 @@ com.ffresco.pricelist
   infrastructure
     adapter
       in
+        api
+          ApiGatewayRouterFunction.java
+          ApiGatewayRouteHandler.java
+          ApiGatewayRequest.java
+          JsonApiResponseFactory.java
+          JsonApiResource.java
+          JsonApiError.java
+          pricelist
+            GetPriceListRouteHandler.java
+            PriceListResource.java
+            PriceListAttributes.java
         function
-          ListPriceFunction.java              # local/direct function
-          ListPriceApiGatewayAdapter.java    # AWS API Gateway adapter
-          ApiGatewayResponseFactory.java     # common HTTP response builder
+          ListPriceFunction.java
           ListPriceRequest.java
           ListPriceResponse.java
           ProductResponse.java
@@ -39,25 +70,29 @@ com.ffresco.pricelist
           InMemoryProductAdapter.java
     config
       ApplicationConfig.java
+      JacksonConfig.java
 ```
 
 ## Mental model
 
 ```text
-Local direct test
+Local fast test
   POST /listPrice
     -> ListPriceFunction
     -> GetPriceListUseCase
     -> GetPriceListService
     -> LoadProductsPort
     -> InMemoryProductAdapter
+```
 
+```text
 AWS HTTP API
   GET /price-lists/{priceListId}
     -> API Gateway HTTP API v2 event
     -> Lambda
-    -> listPriceApiGateway bean
-    -> ListPriceApiGatewayAdapter
+    -> apiGatewayRouter bean
+    -> ApiGatewayRouterFunction
+    -> GetPriceListRouteHandler
     -> ListPriceFunction
     -> GetPriceListUseCase
     -> GetPriceListService
@@ -65,29 +100,27 @@ AWS HTTP API
     -> InMemoryProductAdapter
 ```
 
-## Why there are two functions
+## Why there is an API router
 
-The project has two inbound functions on purpose:
+The project avoids creating one full API Gateway adapter per endpoint.
 
-```text
-listPrice
-```
-
-Receives a simple JSON request and is useful for local development:
-
-```json
-{
-  "priceListId": "default"
-}
-```
+Instead, API Gateway details are centralized in:
 
 ```text
-listPriceApiGateway
+ApiGatewayRouterFunction
+JsonApiResponseFactory
+ApiGatewayRequest
 ```
 
-Receives the real `APIGatewayV2HTTPEvent` sent by API Gateway HTTP API v2 and returns an `APIGatewayV2HTTPResponse`.
+Each new endpoint only creates a small route handler:
 
-This keeps the business flow clean. API Gateway details stay inside `infrastructure.adapter.in.function.ListPriceApiGatewayAdapter`.
+```text
+GetPriceListRouteHandler
+CreateProductRouteHandler
+UpdateProductRouteHandler
+```
+
+This keeps the framework reusable and reduces boilerplate.
 
 ## Requirements
 
@@ -95,7 +128,10 @@ This keeps the business flow clean. API Gateway details stay inside `infrastruct
 - Maven 3.9+
 - AWS CLI configured
 - SAM CLI installed
-- Docker installed if you want to use `sam local invoke`
+
+Optional:
+
+- Docker, only if you want to use `sam local`. This project does not depend on SAM local for daily development.
 
 Check versions:
 
@@ -137,7 +173,7 @@ curl -X POST "http://localhost:8080/listPrice" \
   -d '{"priceListId":"default"}'
 ```
 
-Expected response:
+Expected local/direct response:
 
 ```json
 {
@@ -171,27 +207,6 @@ The generated AWS Lambda JAR is:
 target/price-list-lambda-0.0.1-SNAPSHOT-aws.jar
 ```
 
-## Test API Gateway event locally with SAM
-
-The SAM template overrides the function definition for AWS:
-
-```yaml
-SPRING_CLOUD_FUNCTION_DEFINITION: listPriceApiGateway
-```
-
-Invoke locally with the API Gateway v2 event:
-
-```bash
-sam build
-sam local invoke PriceListFunction -e events/api-gateway-get-price-list.json
-```
-
-This simulates:
-
-```http
-GET /price-lists/default
-```
-
 ## Deploy with SAM
 
 First time:
@@ -215,7 +230,14 @@ Next deployments:
 
 ```bash
 mvn clean package
-sam build
+sam deploy
+```
+
+If you changed the template and want to be explicit:
+
+```bash
+mvn clean package
+sam build --cached=false
 sam deploy
 ```
 
@@ -228,54 +250,76 @@ GET /price-lists/{priceListId}
 Example:
 
 ```bash
-curl https://YOUR_API_ID.execute-api.sa-east-1.amazonaws.com/dev/price-lists/default
+curl -i https://YOUR_API_ID.execute-api.sa-east-1.amazonaws.com/dev/price-lists/default
 ```
 
-SAM also prints this URL as the output:
+Expected AWS/API response in JSON:API format:
 
-```text
-PriceListApiUrl
+```json
+{
+  "data": {
+    "type": "price-lists",
+    "id": "default",
+    "attributes": {
+      "products": [
+        {
+          "id": "P-001",
+          "name": "Café Especial 500g",
+          "price": 12.9,
+          "currency": "USD"
+        }
+      ]
+    }
+  }
+}
 ```
 
-## How to add a new operation
+## Lambda direct test event
 
-For each new operation, follow this map:
+When testing the Lambda directly from the AWS Lambda console, use an API Gateway HTTP API v2 event, not the simple local payload.
 
-```text
-1. application.port.in
-   - Create command
-   - Create use case interface
+Use:
 
-2. application.service
-   - Create use case implementation
-
-3. application.port.out
-   - Create output port if the use case needs persistence, messaging or external APIs
-
-4. infrastructure.adapter.out
-   - Create adapter implementation, for example DynamoDB, SQS, SNS, memory
-
-5. infrastructure.adapter.in.function
-   - Create a local/direct function if you want simple local testing
-   - Create an API Gateway adapter if the operation is exposed by HTTP
-
-6. infrastructure.config
-   - Register beans
-
-7. template.yaml
-   - Add the API Gateway route/event
+```json
+{
+  "version": "2.0",
+  "routeKey": "GET /price-lists/{priceListId}",
+  "rawPath": "/price-lists/default",
+  "rawQueryString": "",
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/dev/price-lists/default"
+    },
+    "routeKey": "GET /price-lists/{priceListId}",
+    "stage": "dev"
+  },
+  "pathParameters": {
+    "priceListId": "default"
+  },
+  "isBase64Encoded": false
+}
 ```
 
-Recommended naming example:
+## How to add a new route
+
+Read:
 
 ```text
-GET /price-lists/{priceListId}
-  listPrice                  # local/direct function
-  listPriceApiGateway        # AWS/API Gateway function
+docs/07-add-new-route-checklist.md
+```
 
-POST /products
-  createProduct              # local/direct function
-  createProductApiGateway    # AWS/API Gateway function
+Short version:
+
+```text
+1. Create use case command/interface/service.
+2. Create output port/adapter if needed.
+3. Create local/direct function if useful.
+4. Create RouteHandler.
+5. Create JSON:API resource mapper.
+6. Register beans in ApplicationConfig.
+7. Add HttpApi event in template.yaml.
+8. Deploy and test with Postman/curl.
 ```
 
 ## AWS Lambda handler
@@ -284,26 +328,25 @@ POST /products
 org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
 ```
 
+## Active Spring Cloud Function in AWS
 
-## Troubleshooting timeout en SAM local
-
-Si `sam local invoke` muestra `No response from invoke container` o timeout, primero regenerá el JAR y subí el timeout local:
-
-```bash
-mvn clean package
-sam build --cached=false
-sam local invoke PriceListFunction -e events/api-gateway-get-price-list.json --debug
+```yaml
+SPRING_CLOUD_FUNCTION_DEFINITION: apiGatewayRouter
 ```
 
-El template usa `Timeout: 90` y `SPRING_MAIN_WEB_APPLICATION_TYPE=none` para que Lambda no intente levantar un servidor web. El endpoint HTTP local directo se usa solo con el perfil `local`:
+## OpenAPI
 
-```bash
-mvn -Plocal spring-boot:run
+Current OpenAPI contract lives here:
+
+```text
+docs/openapi.yaml
 ```
+
+For now, SAM creates API Gateway routes. OpenAPI is documentation/contract. Later it can become the source of truth for API Gateway creation.
 
 ## Knowledge base files
 
-The project includes reusable MD files under `docs/`:
+Reusable MD files under `docs/`:
 
 ```text
 docs/01-architecture-map.md
@@ -311,6 +354,11 @@ docs/02-add-new-function-checklist.md
 docs/03-local-vs-aws-testing.md
 docs/04-troubleshooting.md
 docs/05-chatgpt-context.md
+docs/06-api-gateway-router-framework.md
+docs/07-add-new-route-checklist.md
+docs/08-json-api-first.md
+docs/09-openapi-roadmap.md
+docs/10-project-generator-idea.md
 ```
 
-Use `docs/05-chatgpt-context.md` as the base context when asking ChatGPT to add new backend functions.
+Use `docs/05-chatgpt-context.md` and `docs/06-api-gateway-router-framework.md` as the base context when asking ChatGPT to add new backend functions.

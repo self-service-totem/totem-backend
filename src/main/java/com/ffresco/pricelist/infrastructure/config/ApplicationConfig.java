@@ -5,15 +5,20 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.ffresco.pricelist.application.port.in.GetPriceListUseCase;
 import com.ffresco.pricelist.application.port.out.LoadProductsPort;
 import com.ffresco.pricelist.application.service.GetPriceListService;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ApiGatewayResponseFactory;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceApiGatewayAdapter;
+import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouteHandler;
+import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouterFunction;
+import com.ffresco.pricelist.infrastructure.adapter.in.api.JsonApiResponseFactory;
+import com.ffresco.pricelist.infrastructure.adapter.in.api.pricelist.GetPriceListRouteHandler;
 import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceFunction;
 import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceRequest;
 import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceResponse;
 import com.ffresco.pricelist.infrastructure.adapter.out.memory.InMemoryProductAdapter;
-import java.util.function.Function;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
+import java.util.function.Function;
 
 @Configuration
 public class ApplicationConfig {
@@ -36,7 +41,7 @@ public class ApplicationConfig {
     /**
      * Local/direct function.
      *
-     * This function is useful when running the project locally with spring-cloud-function-web:
+     * Useful when running locally with spring-cloud-function-web:
      * POST /listPrice with a simple JSON body.
      */
     @Bean
@@ -44,23 +49,30 @@ public class ApplicationConfig {
         return listPriceFunction;
     }
 
+    @Bean
+    public JsonApiResponseFactory jsonApiResponseFactory(ObjectMapper objectMapper) {
+        return new JsonApiResponseFactory(objectMapper);
+    }
 
     @Bean
-    public ApiGatewayResponseFactory apiGatewayResponseFactory(com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-        return new ApiGatewayResponseFactory(objectMapper);
+    public ApiGatewayRouteHandler getPriceListRouteHandler(
+            ListPriceFunction listPriceFunction,
+            JsonApiResponseFactory responseFactory
+    ) {
+        return new GetPriceListRouteHandler(listPriceFunction, responseFactory);
     }
 
     /**
-     * AWS/API Gateway function.
+     * AWS/API Gateway entrypoint.
      *
-     * This function receives the APIGatewayV2HTTPEvent sent by API Gateway HTTP API v2
-     * and adapts it to the local/direct listPrice function.
+     * API Gateway sends APIGatewayV2HTTPEvent to this single router.
+     * The router dispatches by routeKey, for example: GET /price-lists/{priceListId}.
      */
     @Bean
-    public Function<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> listPriceApiGateway(
-            ListPriceFunction listPriceFunction,
-            ApiGatewayResponseFactory responseFactory
+    public Function<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> apiGatewayRouter(
+            List<ApiGatewayRouteHandler> routeHandlers,
+            JsonApiResponseFactory responseFactory
     ) {
-        return new ListPriceApiGatewayAdapter(listPriceFunction, responseFactory);
+        return new ApiGatewayRouterFunction(routeHandlers, responseFactory);
     }
 }

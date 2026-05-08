@@ -12,7 +12,7 @@ Globals:
     Environment:
       Variables:
         # AWS/API Gateway function. Local Spring execution keeps application.yml=listPrice.
-        SPRING_CLOUD_FUNCTION_DEFINITION: listPriceApiGateway
+        SPRING_CLOUD_FUNCTION_DEFINITION: apiGatewayRouter
         SPRING_MAIN_WEB_APPLICATION_TYPE: none
 
 Resources:
@@ -26,8 +26,12 @@ Resources:
         AllowHeaders:
           - Content-Type
           - Authorization
+          - Accept
         AllowMethods:
           - GET
+          - POST
+          - PUT
+          - DELETE
           - OPTIONS
 
   PriceListFunction:
