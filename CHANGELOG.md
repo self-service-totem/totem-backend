@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.2] - 2026-05-08
+
+### Changed
+- SAM template updated to use source-based packaging with `CodeUri: ./` for local build compatibility.
+- Lambda runtime boot configuration standardized with `MAIN_CLASS: com.ffresco.pricelist.PriceListLambdaApplication`.
+- API outputs refined to include base API URL and a concrete `GetPriceList` example URL.
+
+### Fixed
+- SAM transform/deploy error caused by invalid `DefinitionUri` usage in `AWS::Serverless::HttpApi`.
+- Local route mounting issues for `GET /health` by keeping explicit HTTP API events in `template.yaml`.
+- Local SAM validation flow now passes with the current template configuration (`sam validate`).
+
 ## [1.0.0] - 2026-05-08
 
 ### Added
@@ -29,4 +41,3 @@ All notable changes to this project are documented in this file.
 - AWS deployment uses:
   - `Handler`: `org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest`
   - `SPRING_CLOUD_FUNCTION_DEFINITION`: `apiGatewayRouter`
-
