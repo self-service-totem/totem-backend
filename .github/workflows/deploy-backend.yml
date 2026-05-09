@@ -40,11 +40,10 @@ permissions:
 
 jobs:
   validate:
-    name: Validate inputs
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate deployment inputs
+      - name: Validate inputs
         run: |
           if [ "${{ inputs.accept_checklist }}" != "true" ]; then
             echo "Checklist must be accepted."
@@ -61,22 +60,22 @@ jobs:
             exit 1
           fi
 
-  sam-build:
-    name: SAM build
+  deploy:
     runs-on: ubuntu-latest
     needs: validate
+    environment: ${{ inputs.target }}
 
     steps:
-      - name: Checkout selected branch
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source_branch }}
           fetch-depth: 0
 
-      - name: Validate tag does not exist
+      - name: Validate tag
         run: |
           if git rev-parse "${{ inputs.release_version }}" >/dev/null 2>&1; then
-            echo "Tag already exists: ${{ inputs.release_version }}"
+            echo "Tag already exists"
             exit 1
           fi
 
@@ -86,43 +85,17 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Setup AWS SAM CLI
+      - name: Setup SAM
         uses: aws-actions/setup-sam@v2
 
-      - name: SAM build
-        run: |
-          sam build --template-file template.yaml --debug
-
-      - name: Upload SAM build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sam-build
-          path: |
-            .aws-sam
-            template.yaml
-            openapi.yaml
-
-  sam-deploy:
-    name: Deploy SAM stack
-    runs-on: ubuntu-latest
-    needs: sam-build
-    environment: ${{ inputs.target }}
-
-    steps:
-      - name: Download SAM build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sam-build
-          path: .
-
-      - name: Setup AWS SAM CLI
-        uses: aws-actions/setup-sam@v2
-
-      - name: Configure AWS credentials
+      - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: SAM build
+        run: sam build --debug
 
       - name: SAM deploy
         run: |
@@ -138,35 +111,7 @@ jobs:
               Environment=${{ inputs.target }} \
               ReleaseVersion=${{ inputs.release_version }}
 
-      - name: Show CloudFormation events on failure
-        if: failure()
-        continue-on-error: true
-        run: |
-          aws cloudformation describe-stack-events \
-            --stack-name ${{ vars.SAM_STACK_NAME }} \
-            --region ${{ vars.AWS_REGION }} \
-            --max-items 20 || echo "Stack does not exist yet or failure happened before CloudFormation created events."
-
-  publish-openapi:
-    name: Publish OpenAPI
-    runs-on: ubuntu-latest
-    needs: sam-deploy
-    environment: ${{ inputs.target }}
-
-    steps:
-      - name: Download SAM build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sam-build
-          path: .
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-
-      - name: Publish OpenAPI to S3
+      - name: Publish OpenAPI
         run: |
           aws s3 cp openapi.yaml s3://${{ vars.OPENAPI_BUCKET }}/openapi.yaml \
             --content-type "application/yaml" \
@@ -176,19 +121,7 @@ jobs:
             --content-type "application/yaml" \
             --cache-control "no-cache"
 
-  tag:
-    name: Create release tag
-    runs-on: ubuntu-latest
-    needs: publish-openapi
-
-    steps:
-      - name: Checkout selected branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.source_branch }}
-          fetch-depth: 0
-
-      - name: Create and push tag
+      - name: Tag release
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
