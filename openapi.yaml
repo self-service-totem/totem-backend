@@ -1,0 +1,243 @@
+openapi: 3.0.3
+info:
+  title: Price List API
+  version: 0.1.0
+  description: |
+    JSON:API-first contract for the Price List Lambda.
+    This file is the API contract source of truth. AWS SAM references it from template.yaml.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway HTTP API
+    variables:
+      apiId:
+        default: api-id
+      region:
+        default: sa-east-1
+      stage:
+        default: dev
+  - url: http://localhost:3000
+    description: SAM local API
+x-amazon-apigateway-cors:
+  allowOrigins:
+    - '*'
+  allowMethods:
+    - GET
+    - POST
+    - PUT
+    - PATCH
+    - DELETE
+    - OPTIONS
+  allowHeaders:
+    - Content-Type
+    - Authorization
+    - Accept
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the current status of the Lambda API.
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/HealthDocument'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /price-lists/{priceListId}:
+    get:
+      tags:
+        - Price Lists
+      summary: Get a price list
+      description: Returns one price list by id using a JSON:API resource document.
+      operationId: getPriceList
+      parameters:
+        - name: priceListId
+          in: path
+          required: true
+          description: Price list identifier.
+          schema:
+            type: string
+          example: default
+      responses:
+        '200':
+          description: Price list found
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/PriceListDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    HealthDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/HealthResource'
+
+    HealthResource:
+      type: object
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          type: string
+          example: health
+        id:
+          type: string
+          example: current
+        attributes:
+          $ref: '#/components/schemas/HealthAttributes'
+
+    HealthAttributes:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    PriceListDocument:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/PriceListResource'
+
+    PriceListResource:
+      type: object
+      required:
+        - type
+        - id
+        - attributes
+      properties:
+        type:
+          type: string
+          enum:
+            - price-lists
+          example: price-lists
+        id:
+          type: string
+          example: default
+        attributes:
+          $ref: '#/components/schemas/PriceListAttributes'
+
+    PriceListAttributes:
+      type: object
+      required:
+        - products
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceListProductAttributes'
+
+    PriceListProductAttributes:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - currency
+      properties:
+        id:
+          type: string
+          example: P-001
+        name:
+          type: string
+          example: Café Especial 500g
+        price:
+          type: number
+          format: double
+          example: 12.9
+        currency:
+          type: string
+          example: USD
+
+    ErrorDocument:
+      type: object
+      required:
+        - errors
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsonApiError'
+
+    JsonApiError:
+      type: object
+      required:
+        - status
+        - title
+        - detail
+      properties:
+        status:
+          type: string
+          example: '400'
+        title:
+          type: string
+          example: Bad Request
+        detail:
+          type: string
+          example: Path parameter 'priceListId' is required
+
+  responses:
+    BadRequest:
+      description: Invalid request syntax, path parameter, query parameter, or body.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'
+    NotFound:
+      description: Resource not found.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'
+    Conflict:
+      description: Resource conflict.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'
+    UnprocessableEntity:
+      description: Request is syntactically valid but violates a business rule.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'
+    TooManyRequests:
+      description: Rate limit exceeded.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/vnd.api+json:
+          schema:
+            $ref: '#/components/schemas/ErrorDocument'

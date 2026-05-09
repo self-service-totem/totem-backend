@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Description: Price List Lambda with Spring Cloud Function, Java 21 and API Gateway HTTP API
 
@@ -21,19 +21,6 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: dev
-      CorsConfiguration:
-        AllowOrigins:
-          - "*"
-        AllowHeaders:
-          - Content-Type
-          - Authorization
-          - Accept
-        AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - OPTIONS
 
   PriceListFunction:
     Type: AWS::Serverless::Function
@@ -46,21 +33,19 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
+        # These events define routes and also attach Lambda integration/permissions.
         GetPriceList:
           Type: HttpApi
           Properties:
             ApiId: !Ref PriceListHttpApi
             Path: /price-lists/{priceListId}
             Method: GET
-            PayloadFormatVersion: '2.0'
         Health:
           Type: HttpApi
           Properties:
             ApiId: !Ref PriceListHttpApi
             Path: /health
             Method: GET
-            PayloadFormatVersion: '2.0'
-
 
 Outputs:
   PriceListFunctionName:
@@ -72,5 +57,9 @@ Outputs:
     Value: !GetAtt PriceListFunction.Arn
 
   PriceListApiUrl:
-    Description: API Gateway HTTP API URL
+    Description: API Gateway HTTP API base URL
+    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+
+  GetPriceListUrl:
+    Description: Example price list endpoint
     Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/dev/price-lists/default"
