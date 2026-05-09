@@ -107,6 +107,7 @@ jobs:
             --region ${{ vars.AWS_REGION }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
+            --on-failure DELETE \
             --parameter-overrides \
               Environment=${{ inputs.target }} \
               ReleaseVersion=${{ inputs.release_version }}
