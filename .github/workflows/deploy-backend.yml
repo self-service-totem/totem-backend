@@ -94,6 +94,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
 
+      - name: Check identity
+        run: |
+          aws sts get-caller-identity
+          aws iam list-attached-role-policies --role-name Totem-Github-BackEnd
+          aws iam list-role-policies --role-name Totem-Github-BackEnd
+
       - name: SAM build
         run: sam build --debug
 
