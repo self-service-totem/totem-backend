@@ -1,4 +1,4 @@
-package com.ffresco.pricelist.infrastructure.adapter.in.function;
+package com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist;
 
 import com.ffresco.pricelist.application.port.in.GetPriceListCommand;
 import com.ffresco.pricelist.application.port.in.GetPriceListUseCase;

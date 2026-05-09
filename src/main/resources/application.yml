@@ -3,4 +3,5 @@ spring:
     function:
       # Local/default function.
       # SAM/AWS overrides this value with SPRING_CLOUD_FUNCTION_DEFINITION=apiGatewayRouter.
-      definition: listPrice
+      definition: health
+      #definition: getHealthRouteHandler

@@ -39,8 +39,16 @@ public class JsonApiResponseFactory {
         return error(400, "Bad Request", detail);
     }
 
+    public APIGatewayV2HTTPResponse unprocessableEntity(String detail) {
+        return error(422, "Unprocessable Entity", detail);
+    }
+
     public APIGatewayV2HTTPResponse notFound(String detail) {
         return error(404, "Not Found", detail);
+    }
+
+    public APIGatewayV2HTTPResponse tooManyRequests(String detail) {
+        return error(429, "Too Many Requests", detail);
     }
 
     public APIGatewayV2HTTPResponse internalServerError(String detail) {

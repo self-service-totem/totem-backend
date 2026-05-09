@@ -5,8 +5,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRequest;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouteHandler;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.JsonApiResponseFactory;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceFunction;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceRequest;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceFunction;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceRequest;
 
 public class GetPriceListRouteHandler implements ApiGatewayRouteHandler {
 
@@ -32,6 +32,6 @@ public class GetPriceListRouteHandler implements ApiGatewayRouteHandler {
     public APIGatewayV2HTTPResponse handle(APIGatewayV2HTTPEvent event) {
         String priceListId = ApiGatewayRequest.requiredPathParameter(event, "priceListId");
         var response = listPriceFunction.apply(new ListPriceRequest(priceListId));
-        return responseFactory.ok(PriceListResource.from(response));
+        return responseFactory.ok(PriceListJsonApiMapper.toResource(response));
     }
 }

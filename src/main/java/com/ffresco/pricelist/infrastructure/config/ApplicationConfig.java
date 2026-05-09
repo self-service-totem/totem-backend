@@ -8,10 +8,12 @@ import com.ffresco.pricelist.application.service.GetPriceListService;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouteHandler;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouterFunction;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.JsonApiResponseFactory;
+import com.ffresco.pricelist.infrastructure.adapter.in.api.health.GetHealthRouteHandler;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.pricelist.GetPriceListRouteHandler;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceFunction;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceRequest;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.ListPriceResponse;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.health.HealthFunction;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceFunction;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceRequest;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceResponse;
 import com.ffresco.pricelist.infrastructure.adapter.out.memory.InMemoryProductAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +21,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Configuration
 public class ApplicationConfig {
@@ -62,6 +65,22 @@ public class ApplicationConfig {
         return new GetPriceListRouteHandler(listPriceFunction, responseFactory);
     }
 
+    // health endpoint
+
+    @Bean("health")
+    public HealthFunction health() {
+        return new HealthFunction();
+    }
+
+    @Bean
+    public ApiGatewayRouteHandler getHealthRouteHandler(
+            HealthFunction healthFunction,
+            JsonApiResponseFactory responseFactory
+    ) {
+        return new GetHealthRouteHandler(healthFunction, responseFactory);
+    }
+
+
     /**
      * AWS/API Gateway entrypoint.
      *
@@ -75,4 +94,7 @@ public class ApplicationConfig {
     ) {
         return new ApiGatewayRouterFunction(routeHandlers, responseFactory);
     }
+
+
+
 }

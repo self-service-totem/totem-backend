@@ -1,4 +1,4 @@
-package com.ffresco.pricelist.infrastructure.adapter.in.function;
+package com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist;
 
 import java.math.BigDecimal;
 

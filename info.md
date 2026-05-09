@@ -7,16 +7,13 @@ mvn clean package
 
 ### BUILD CON SAM CLI (puedo usar sam build, pero falla `sam build` por version ver de bajar una nueva)
 ```bash
-curl -L -o /tmp/aws-sam-cli-macos-arm64.pkg "https://github.com/aws/aws-sam-cli/releases/download/v1.158.0/aws-sam-cli-macos-arm64.pkg"
-sudo installer -pkg /tmp/aws-sam-cli-macos-arm64.pkg -target /
-sam --version
-
 sam build
 ```
 
 ### Deploy 
 #### Default
 ```bash
+sam validate ##chequar el template.yaml
 sam deploy --profile ffresco  ##deploy default
 ```
 #### Ambientes
@@ -45,7 +42,7 @@ sam local invoke PriceListFunction --event events/list-price-local.json
 ```
 ##### Invocar a traves de API Gateway local
 ```bash
-sam local start-api
+sam local start-api --profile ffresco
 ```
 
 ## Utiles ************
