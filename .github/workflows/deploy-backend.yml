@@ -83,7 +83,7 @@ jobs:
 
       - name: Build project
         run: |
-          ./mvnw clean package -DskipTests
+          mvn clean package -DskipTests
 
       - name: Setup AWS SAM CLI
         uses: aws-actions/setup-sam@v2
