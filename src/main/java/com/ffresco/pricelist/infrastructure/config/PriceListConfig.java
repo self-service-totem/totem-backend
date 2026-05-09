@@ -27,6 +27,13 @@ public class PriceListConfig {
         return new GetPriceListFunction(getPriceListUseCase);
     }
 
+    @Bean
+    public ApiGatewayRouteHandler getPriceListRouteHandler(
+            GetPriceListFunction getPriceListFunction,
+            JsonApiResponseFactory responseFactory
+    ) {
+        return new GetPriceListRouteHandler(getPriceListFunction, responseFactory);
+    }
     /**
      * Local/direct function.
      *
@@ -40,11 +47,5 @@ public class PriceListConfig {
         return getPriceListFunction;
     }
 
-    @Bean
-    public ApiGatewayRouteHandler getPriceListRouteHandler(
-            GetPriceListFunction getPriceListFunction,
-            JsonApiResponseFactory responseFactory
-    ) {
-        return new GetPriceListRouteHandler(getPriceListFunction, responseFactory);
-    }
+
 }

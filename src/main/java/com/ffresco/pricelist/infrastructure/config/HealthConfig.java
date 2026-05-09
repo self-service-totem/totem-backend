@@ -13,6 +13,14 @@ import java.util.function.Supplier;
 @Configuration
 public class HealthConfig {
 
+    @Bean
+    public ApiGatewayRouteHandler getHealthRouteHandler(
+            Supplier<HealthFunctionResponse> healthFunction,
+            JsonApiResponseFactory responseFactory
+    ) {
+        return new GetHealthRouteHandler(healthFunction, responseFactory);
+    }
+
     /**
      * Local/direct function.
      *
@@ -24,11 +32,5 @@ public class HealthConfig {
         return new HealthFunction();
     }
 
-    @Bean
-    public ApiGatewayRouteHandler getHealthRouteHandler(
-            Supplier<HealthFunctionResponse> healthFunction,
-            JsonApiResponseFactory responseFactory
-    ) {
-        return new GetHealthRouteHandler(healthFunction, responseFactory);
-    }
+
 }
