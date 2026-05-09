@@ -34,18 +34,17 @@ on:
         required: true
         type: boolean
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
-  deploy:
+  validate:
+    name: Validate inputs
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-      id-token: write
-
-    environment: ${{ inputs.target }}
-
     steps:
-      - name: Validate inputs
+      - name: Validate deployment inputs
         run: |
           if [ "${{ inputs.accept_checklist }}" != "true" ]; then
             echo "Checklist must be accepted."
@@ -62,6 +61,12 @@ jobs:
             exit 1
           fi
 
+  build:
+    name: Build project
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
       - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
@@ -84,6 +89,29 @@ jobs:
       - name: Build project
         run: |
           mvn clean package -DskipTests
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-source
+          path: |
+            .
+            !.git
+            !target
+            !.github
+
+  sam-deploy:
+    name: Deploy SAM stack
+    runs-on: ubuntu-latest
+    needs: build
+    environment: ${{ inputs.target }}
+
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-source
+          path: .
 
       - name: Setup AWS SAM CLI
         uses: aws-actions/setup-sam@v2
@@ -111,6 +139,33 @@ jobs:
               Environment=${{ inputs.target }} \
               ReleaseVersion=${{ inputs.release_version }}
 
+      - name: Show CloudFormation events on failure
+        if: failure()
+        run: |
+          aws cloudformation describe-stack-events \
+            --stack-name ${{ vars.SAM_STACK_NAME }} \
+            --region ${{ vars.AWS_REGION }} \
+            --max-items 20
+
+  publish-openapi:
+    name: Publish OpenAPI
+    runs-on: ubuntu-latest
+    needs: sam-deploy
+    environment: ${{ inputs.target }}
+
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-source
+          path: .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
       - name: Publish OpenAPI to S3
         run: |
           aws s3 cp openapi.yaml s3://${{ vars.OPENAPI_BUCKET }}/openapi.yaml \
@@ -120,6 +175,18 @@ jobs:
           aws s3 cp openapi.yaml s3://${{ vars.OPENAPI_BUCKET }}/${{ inputs.release_version }}/openapi.yaml \
             --content-type "application/yaml" \
             --cache-control "no-cache"
+
+  tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    needs: publish-openapi
+
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          fetch-depth: 0
 
       - name: Create and push tag
         run: |
