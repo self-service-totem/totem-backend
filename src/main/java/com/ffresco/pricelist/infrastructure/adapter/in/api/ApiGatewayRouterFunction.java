@@ -11,15 +11,15 @@ import java.util.stream.Collectors;
 public class ApiGatewayRouterFunction implements Function<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
     private final Map<String, ApiGatewayRouteHandler> routeHandlers;
-    private final JsonApiResponseFactory responseFactory;
+    private final ApiExceptionHandler exceptionHandler;
 
     public ApiGatewayRouterFunction(
             List<ApiGatewayRouteHandler> routeHandlers,
-            JsonApiResponseFactory responseFactory
+            ApiExceptionHandler exceptionHandler
     ) {
         this.routeHandlers = routeHandlers.stream()
                 .collect(Collectors.toUnmodifiableMap(ApiGatewayRouteHandler::routeKey, Function.identity()));
-        this.responseFactory = responseFactory;
+        this.exceptionHandler = exceptionHandler;
     }
 
     @Override
@@ -29,14 +29,14 @@ public class ApiGatewayRouterFunction implements Function<APIGatewayV2HTTPEvent,
             ApiGatewayRouteHandler handler = routeHandlers.get(routeKey);
 
             if (handler == null) {
-                return responseFactory.notFound("No route handler found for routeKey: " + routeKey);
+                return exceptionHandler.handle(new IllegalArgumentException(
+                        "No route handler found for routeKey: " + routeKey
+                ));
             }
 
             return handler.handle(event);
-        } catch (IllegalArgumentException e) {
-            return responseFactory.badRequest(e.getMessage());
-        } catch (Exception e) {
-            return responseFactory.internalServerError("Internal server error");
+        } catch (Exception exception) {
+            return exceptionHandler.handle(exception);
         }
     }
 }

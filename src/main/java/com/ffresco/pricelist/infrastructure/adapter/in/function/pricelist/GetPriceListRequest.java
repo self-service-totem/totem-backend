@@ -1,4 +1,4 @@
 package com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist;
 
-public record ListPriceRequest(String priceListId) {
+public record GetPriceListRequest(String priceListId) {
 }

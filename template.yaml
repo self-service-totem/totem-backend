@@ -11,7 +11,7 @@ Globals:
       - x86_64
     Environment:
       Variables:
-        # AWS/API Gateway function. Local Spring execution keeps application.yml=listPrice.
+        # AWS/API Gateway function. Local Spring execution keeps application.yml for direct function testing.
         SPRING_CLOUD_FUNCTION_DEFINITION: apiGatewayRouter
         SPRING_MAIN_WEB_APPLICATION_TYPE: none
         MAIN_CLASS: com.ffresco.pricelist.PriceListLambdaApplication

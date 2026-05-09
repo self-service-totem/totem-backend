@@ -1,7 +1,8 @@
 package com.ffresco.pricelist.application.service;
 
-import com.ffresco.pricelist.application.port.in.GetPriceListCommand;
+import com.ffresco.pricelist.application.port.in.pricelist.GetPriceListCommand;
 import com.ffresco.pricelist.application.port.out.LoadProductsPort;
+import com.ffresco.pricelist.application.service.pricelist.GetPriceListService;
 import com.ffresco.pricelist.domain.enums.Currency;
 import com.ffresco.pricelist.domain.model.Money;
 import com.ffresco.pricelist.domain.model.Product;
@@ -24,6 +25,6 @@ class GetPriceListServiceTest {
 
         assertThat(result.id()).isEqualTo("default");
         assertThat(result.products()).hasSize(1);
-        assertThat(result.products().getFirst().name()).isEqualTo("Test Product");
+        assertThat(result.products().get(0).name()).isEqualTo("Test Product");
     }
 }

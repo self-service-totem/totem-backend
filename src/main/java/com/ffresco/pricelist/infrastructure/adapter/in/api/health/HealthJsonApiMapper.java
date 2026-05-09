@@ -1,8 +1,7 @@
 package com.ffresco.pricelist.infrastructure.adapter.in.api.health;
 
 import com.ffresco.pricelist.infrastructure.adapter.in.api.JsonApiResource;
-import com.ffresco.pricelist.infrastructure.adapter.in.api.pricelist.PriceListAttributes;
-import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.ListPriceResponse;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.health.HealthFunctionResponse;
 
 public final class HealthJsonApiMapper {
 
@@ -11,11 +10,11 @@ public final class HealthJsonApiMapper {
     private HealthJsonApiMapper() {
     }
 
-    public static JsonApiResource<String> toResource(String response) {
+    public static JsonApiResource<HealthAttributes> toResource(HealthFunctionResponse response) {
         return new JsonApiResource<>(
                 TYPE,
                 TYPE,
-                response
+                new HealthAttributes(response.status())
         );
     }
 }

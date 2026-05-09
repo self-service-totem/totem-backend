@@ -47,6 +47,10 @@ public class JsonApiResponseFactory {
         return error(404, "Not Found", detail);
     }
 
+    public APIGatewayV2HTTPResponse conflict(String detail) {
+        return error(409, "Conflict", detail);
+    }
+
     public APIGatewayV2HTTPResponse tooManyRequests(String detail) {
         return error(429, "Too Many Requests", detail);
     }

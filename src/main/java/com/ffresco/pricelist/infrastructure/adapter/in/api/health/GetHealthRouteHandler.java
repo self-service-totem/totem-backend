@@ -4,6 +4,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.ApiGatewayRouteHandler;
 import com.ffresco.pricelist.infrastructure.adapter.in.api.JsonApiResponseFactory;
+import com.ffresco.pricelist.infrastructure.adapter.in.function.health.HealthFunctionResponse;
 
 import java.util.function.Supplier;
 
@@ -11,11 +12,11 @@ public class GetHealthRouteHandler implements ApiGatewayRouteHandler {
 
     public static final String ROUTE_KEY = "GET /health";
 
-    private final Supplier<String> healthFunction;
+    private final Supplier<HealthFunctionResponse> healthFunction;
     private final JsonApiResponseFactory responseFactory;
 
     public GetHealthRouteHandler(
-            Supplier<String> healthFunction,
+            Supplier<HealthFunctionResponse> healthFunction,
             JsonApiResponseFactory responseFactory
     ) {
         this.healthFunction = healthFunction;

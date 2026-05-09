@@ -1,4 +1,4 @@
-package com.ffresco.pricelist.application.port.in;
+package com.ffresco.pricelist.application.port.in.pricelist;
 
 public record GetPriceListCommand(String priceListId) {
 

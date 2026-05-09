@@ -3,9 +3,9 @@ package com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist;
 import com.ffresco.pricelist.domain.model.PriceList;
 import java.util.List;
 
-public record ListPriceResponse(String priceListId, List<ProductResponse> products) {
+public record GetPriceListResponse(String priceListId, List<ProductResponse> products) {
 
-    public static ListPriceResponse from(PriceList priceList) {
+    public static GetPriceListResponse from(PriceList priceList) {
         var productResponses = priceList.products()
                 .stream()
                 .map(product -> new ProductResponse(
@@ -16,6 +16,6 @@ public record ListPriceResponse(String priceListId, List<ProductResponse> produc
                 ))
                 .toList();
 
-        return new ListPriceResponse(priceList.id(), productResponses);
+        return new GetPriceListResponse(priceList.id(), productResponses);
     }
 }

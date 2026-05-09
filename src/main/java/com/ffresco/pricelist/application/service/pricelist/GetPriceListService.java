@@ -1,7 +1,7 @@
-package com.ffresco.pricelist.application.service;
+package com.ffresco.pricelist.application.service.pricelist;
 
-import com.ffresco.pricelist.application.port.in.GetPriceListCommand;
-import com.ffresco.pricelist.application.port.in.GetPriceListUseCase;
+import com.ffresco.pricelist.application.port.in.pricelist.GetPriceListCommand;
+import com.ffresco.pricelist.application.port.in.pricelist.GetPriceListUseCase;
 import com.ffresco.pricelist.application.port.out.LoadProductsPort;
 import com.ffresco.pricelist.domain.model.PriceList;
 
