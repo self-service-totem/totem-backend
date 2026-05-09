@@ -1,6 +1,6 @@
 version = 0.1
 
-[default.deploy.parameters]
+[local.deploy.parameters]
 stack_name = "price-list-lambda-stack"
 resolve_s3 = true
 s3_prefix = "price-list-lambda-stack"

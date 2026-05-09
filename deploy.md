@@ -13,8 +13,8 @@ sam build
 ### Deploy 
 #### Default
 ```bash
-sam validate ##chequar el template.yaml
-sam deploy --profile ffresco  ##deploy default
+sam validate 
+sam deploy --config-env local --profile ffresco  ##deploy default
 ```
 #### Ambientes
 ```bash
@@ -38,11 +38,11 @@ export DOCKER_HOST=unix:///Users/fernandofresco/.colima/default/docker.sock
 ```
 ##### Invocar la lambda
 ```bash
-sam local invoke PriceListFunction --event events/list-price-local.json
+sam local invoke PriceListFunction --parameter-overrides Environment=local ReleaseVersion=local --event events/list-price-local.json
 ```
 ##### Invocar a traves de API Gateway local
 ```bash
-sam local start-api --profile ffresco
+sam local start-api --parameter-overrides Environment=local ReleaseVersion=local --profile ffresco 
 ```
 
 ## Utiles ************

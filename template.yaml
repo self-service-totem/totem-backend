@@ -11,35 +11,49 @@ Globals:
       - x86_64
     Environment:
       Variables:
-        # AWS/API Gateway function. Local Spring execution keeps application.yml for direct function testing.
         SPRING_CLOUD_FUNCTION_DEFINITION: apiGatewayRouter
         SPRING_MAIN_WEB_APPLICATION_TYPE: none
         MAIN_CLASS: com.ffresco.pricelist.PriceListLambdaApplication
+        ENVIRONMENT: !Ref Environment
+        RELEASE_VERSION: !Ref ReleaseVersion
+
+Parameters:
+  Environment:
+    Type: String
+    Default: local
+    AllowedValues:
+      - local
+      - dev
+      - prod
+
+  ReleaseVersion:
+    Type: String
+    Default: local
 
 Resources:
   PriceListHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: dev
+      StageName: !Ref Environment
 
   PriceListFunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Zip
-      FunctionName: price-list-lambda-sam
+      FunctionName: !Sub price-list-lambda-${Environment}
       Handler: org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest
       CodeUri: ./
       Description: Price list Lambda using Spring Cloud Function
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
-        # These events define routes and also attach Lambda integration/permissions.
         GetPriceList:
           Type: HttpApi
           Properties:
             ApiId: !Ref PriceListHttpApi
             Path: /price-lists/{priceListId}
             Method: GET
+
         Health:
           Type: HttpApi
           Properties:
@@ -58,8 +72,8 @@ Outputs:
 
   PriceListApiUrl:
     Description: API Gateway HTTP API base URL
-    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/dev"
+    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
 
   GetPriceListUrl:
     Description: Example price list endpoint
-    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/dev/price-lists/default"
+    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/price-lists/default"
