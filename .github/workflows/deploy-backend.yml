@@ -94,12 +94,6 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
 
-      - name: Check identity
-        run: |
-          aws sts get-caller-identity
-          aws iam list-attached-role-policies --role-name Totem-Github-BackEnd
-          aws iam list-role-policies --role-name Totem-Github-BackEnd
-
       - name: SAM build
         run: sam build --debug
 
@@ -118,17 +112,80 @@ jobs:
               Environment=${{ inputs.target }} \
               ReleaseVersion=${{ inputs.release_version }}
 
-      - name: Publish OpenAPI
+  publish-openapi:
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment: ${{ inputs.target }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Swagger UI static site
         run: |
-          aws s3 cp openapi.yaml s3://${{ vars.OPENAPI_BUCKET }}/openapi.yaml \
-            --content-type "application/yaml" \
+          mkdir -p swagger-site
+
+          npm pack swagger-ui-dist
+          tar -xzf swagger-ui-dist-*.tgz
+          cp -R package/* swagger-site/
+
+          cp openapi.yaml swagger-site/openapi.yaml
+
+          cat > swagger-site/swagger-initializer.js <<'EOF'
+          window.onload = function() {
+            window.ui = SwaggerUIBundle({
+              url: "./openapi.yaml",
+              dom_id: "#swagger-ui",
+              deepLinking: true,
+              presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+              ],
+              plugins: [
+                SwaggerUIBundle.plugins.DownloadUrl
+              ],
+              layout: "StandaloneLayout"
+            });
+          };
+          EOF
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Publish Swagger UI to S3
+        run: |
+          aws s3 sync swagger-site/ s3://${{ vars.OPENAPI_BUCKET }}/ --delete \
             --cache-control "no-cache"
 
+      - name: Publish versioned OpenAPI raw file
+        run: |
           aws s3 cp openapi.yaml s3://${{ vars.OPENAPI_BUCKET }}/${{ inputs.release_version }}/openapi.yaml \
             --content-type "application/yaml" \
             --cache-control "no-cache"
 
-      - name: Tag release
+  tag-release:
+    runs-on: ubuntu-latest
+    needs: publish-openapi
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          fetch-depth: 0
+
+      - name: Create and push tag
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
