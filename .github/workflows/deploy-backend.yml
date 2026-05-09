@@ -61,8 +61,8 @@ jobs:
             exit 1
           fi
 
-  build:
-    name: Build project
+  sam-build:
+    name: SAM build
     runs-on: ubuntu-latest
     needs: validate
 
@@ -86,31 +86,33 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Build project
-        run: |
-          mvn clean package -DskipTests
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
 
-      - name: Upload backend artifact
+      - name: SAM build
+        run: |
+          sam build --template-file template.yaml --debug
+
+      - name: Upload SAM build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-source
+          name: sam-build
           path: |
-            .
-            !.git
-            !target
-            !.github
+            .aws-sam
+            template.yaml
+            openapi.yaml
 
   sam-deploy:
     name: Deploy SAM stack
     runs-on: ubuntu-latest
-    needs: build
+    needs: sam-build
     environment: ${{ inputs.target }}
 
     steps:
-      - name: Download backend artifact
+      - name: Download SAM build artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-source
+          name: sam-build
           path: .
 
       - name: Setup AWS SAM CLI
@@ -122,13 +124,10 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
 
-      - name: SAM build
-        run: |
-          sam build --template-file template.yaml
-
       - name: SAM deploy
         run: |
           sam deploy \
+            --template-file .aws-sam/build/template.yaml \
             --stack-name ${{ vars.SAM_STACK_NAME }} \
             --s3-bucket ${{ vars.SAM_ARTIFACTS_BUCKET }} \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -141,11 +140,12 @@ jobs:
 
       - name: Show CloudFormation events on failure
         if: failure()
+        continue-on-error: true
         run: |
           aws cloudformation describe-stack-events \
             --stack-name ${{ vars.SAM_STACK_NAME }} \
             --region ${{ vars.AWS_REGION }} \
-            --max-items 20
+            --max-items 20 || echo "Stack does not exist yet or failure happened before CloudFormation created events."
 
   publish-openapi:
     name: Publish OpenAPI
@@ -154,10 +154,10 @@ jobs:
     environment: ${{ inputs.target }}
 
     steps:
-      - name: Download backend artifact
+      - name: Download SAM build artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-source
+          name: sam-build
           path: .
 
       - name: Configure AWS credentials
