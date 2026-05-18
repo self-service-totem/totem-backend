@@ -1,10 +1,15 @@
 openapi: 3.0.3
+
 info:
   title: Price List API
   version: 0.1.0
+  license:
+    name: Proprietary
+    url: http://tobe.done.com
   description: |
     JSON:API-first contract for the Price List Lambda.
     This file is the API contract source of truth. AWS SAM references it from template.yaml.
+
 servers:
   - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
     description: AWS API Gateway HTTP API
@@ -15,8 +20,9 @@ servers:
         default: sa-east-1
       stage:
         default: dev
-  - url: http://localhost:3000
-    description: SAM local API
+
+security: []
+
 x-amazon-apigateway-cors:
   allowOrigins:
     - '*'
@@ -31,6 +37,7 @@ x-amazon-apigateway-cors:
     - Content-Type
     - Authorization
     - Accept
+
 paths:
   /health:
     get:
@@ -39,6 +46,12 @@ paths:
       summary: Health check
       description: Returns the current status of the Lambda API.
       operationId: getHealth
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+        payloadFormatVersion: '2.0'
       responses:
         '200':
           description: API is healthy
@@ -46,6 +59,8 @@ paths:
             application/vnd.api+json:
               schema:
                 $ref: '#/components/schemas/HealthDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -56,6 +71,12 @@ paths:
       summary: Get a price list
       description: Returns one price list by id using a JSON:API resource document.
       operationId: getPriceList
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+        payloadFormatVersion: '2.0'
       parameters:
         - name: priceListId
           in: path
@@ -211,30 +232,35 @@ components:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
+
     NotFound:
       description: Resource not found.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
+
     Conflict:
       description: Resource conflict.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
+
     UnprocessableEntity:
       description: Request is syntactically valid but violates a business rule.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
+
     TooManyRequests:
       description: Rate limit exceeded.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
+
     InternalServerError:
       description: Unexpected server error.
       content:
