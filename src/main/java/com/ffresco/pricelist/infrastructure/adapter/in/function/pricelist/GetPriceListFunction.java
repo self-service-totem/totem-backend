@@ -1,6 +1,5 @@
 package com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist;
 
-import com.ffresco.pricelist.application.port.in.pricelist.GetPriceListCommand;
 import com.ffresco.pricelist.application.port.in.pricelist.GetPriceListUseCase;
 import java.util.function.Function;
 
@@ -21,8 +20,8 @@ public class GetPriceListFunction implements Function<GetPriceListRequest, GetPr
 
     @Override
     public GetPriceListResponse apply(GetPriceListRequest request) {
-        var command = new GetPriceListCommand(request == null ? null : request.priceListId());
+        var command = PriceListFunctionMapper.toCommand(request);
         var priceList = getPriceListUseCase.execute(command);
-        return GetPriceListResponse.from(priceList);
+        return PriceListFunctionMapper.toResponse(priceList);
     }
 }

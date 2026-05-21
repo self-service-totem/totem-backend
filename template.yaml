@@ -128,3 +128,7 @@ Outputs:
   TotemCoreTableArn:
     Description: DynamoDB table ARN
     Value: !GetAtt TotemCoreTable.Arn
+
+  GetCatalogVersionUrl:
+    Description: Example catalog version endpoint
+    Value: !Sub https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/branches/branch-001/catalog/version

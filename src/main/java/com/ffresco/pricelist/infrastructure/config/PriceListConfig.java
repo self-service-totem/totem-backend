@@ -9,6 +9,7 @@ import com.ffresco.pricelist.infrastructure.adapter.in.api.pricelist.GetPriceLis
 import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.GetPriceListFunction;
 import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.GetPriceListRequest;
 import com.ffresco.pricelist.infrastructure.adapter.in.function.pricelist.GetPriceListResponse;
+import com.ffresco.pricelist.infrastructure.adapter.out.memory.InMemoryProductAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +17,11 @@ import java.util.function.Function;
 
 @Configuration
 public class PriceListConfig {
+
+    @Bean
+    public LoadProductsPort loadProductsPort() {
+        return new InMemoryProductAdapter();
+    }
 
     @Bean
     public GetPriceListUseCase getPriceListUseCase(LoadProductsPort loadProductsPort) {
