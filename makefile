@@ -1,17 +1,18 @@
-AWS_REGION=sa-east-1
-DYNAMODB_ENDPOINT=http://localhost:8000
-TOTEM_CORE_TABLE_NAME=totem-core-local
+set-up-env-local:
+	export AWS_REGION=sa-east-1
+	export DYNAMODB_ENDPOINT=http://localhost:8000
+	export TOTEM_CORE_TABLE_NAME=totem-core-local
 
-dynamo-up:
+dynamo-up-local:
 	docker compose up -d dynamodb-local
 
-dynamo-list:
+dynamo-list-loal:
 	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
 	aws dynamodb list-tables \
 		--endpoint-url $(DYNAMODB_ENDPOINT) \
 		--region $(AWS_REGION)
 
-dynamo-create-table:
+dynamo-create-table-local:
 	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
 	aws dynamodb create-table \
 		--endpoint-url $(DYNAMODB_ENDPOINT) \
@@ -28,10 +29,17 @@ dynamo-create-table:
 			AttributeName=sk,KeyType=RANGE \
 		--global-secondary-indexes '[{"IndexName":"GSI1","KeySchema":[{"AttributeName":"gsi1pk","KeyType":"HASH"},{"AttributeName":"gsi1sk","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]'
 
-dynamo-seed-catalog-version:
+dynamo-seed-catalog-version-local:
 	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
 	aws dynamodb put-item \
 		--endpoint-url $(DYNAMODB_ENDPOINT) \
 		--region $(AWS_REGION) \
 		--table-name $(TOTEM_CORE_TABLE_NAME) \
 		--item '{"pk":{"S":"BRANCH#branch-001"},"sk":{"S":"CATALOG#VERSION"},"branchId":{"S":"branch-001"},"catalogVersion":{"S":"2026-05-20T12:00:00Z"},"priceListId":{"S":"default"}}'
+
+dynamo-seed-catalog-version-aws-stack-local:
+	aws dynamodb put-item \
+	  --region sa-east-1 \
+	  --table-name totem-core-local \
+	  --item '{"pk":{"S":"BRANCH#branch-001"},"sk":{"S":"CATALOG#VERSION"},"branchId":{"S":"branch-001"},"catalogVersion":{"S":"2026-05-20T12:00:00Z"},"priceListId":{"S":"default"}}' \
+	  --profile ffresco

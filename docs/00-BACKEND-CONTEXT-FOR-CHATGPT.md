@@ -226,3 +226,4 @@ Function understands Spring Cloud Function.
 UseCase understands application action.
 Domain understands business rules.
 ```
+
