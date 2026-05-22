@@ -1,0 +1,157 @@
+PublicMoneyAttributes:
+  type: object
+  required:
+  - amount
+  - currency
+  properties:
+    amount:
+      type: string
+      description: Decimal amount serialized as a string with two fractional digits.
+      example: '12.50'
+    currency:
+      type: string
+      example: BRL
+PublicMenuProductAttributes:
+  type: object
+  required:
+  - id
+  - name
+  - price
+  - available
+  properties:
+    id:
+      type: string
+      example: prd-001
+    name:
+      type: string
+      example: Cheeseburger
+    description:
+      type: string
+      nullable: true
+      example: Beef patty, cheddar, brioche bun.
+    price:
+      $ref: '#/components/schemas/PublicMoneyAttributes'
+    available:
+      type: boolean
+      example: true
+PublicMenuCategoryAttributes:
+  type: object
+  required:
+  - id
+  - name
+  - products
+  properties:
+    id:
+      type: string
+      example: cat-burgers
+    name:
+      type: string
+      example: Burgers
+    products:
+      type: array
+      items:
+        $ref: '#/components/schemas/PublicMenuProductAttributes'
+PublicMenuAttributes:
+  type: object
+  required:
+  - branchId
+  - tableId
+  - currency
+  - categories
+  properties:
+    branchId:
+      type: string
+      example: branch-001
+    tableId:
+      type: string
+      example: tbl-001
+    currency:
+      type: string
+      example: BRL
+    categories:
+      type: array
+      items:
+        $ref: '#/components/schemas/PublicMenuCategoryAttributes'
+PublicMenuResource:
+  type: object
+  required:
+  - type
+  - id
+  - attributes
+  properties:
+    type:
+      type: string
+      enum:
+      - public-menu
+      example: public-menu
+    id:
+      type: string
+      example: branch-001-menu
+    attributes:
+      $ref: '#/components/schemas/PublicMenuAttributes'
+PublicMenuDocument:
+  type: object
+  required:
+  - data
+  properties:
+    data:
+      $ref: '#/components/schemas/PublicMenuResource'
+PublicProductAttributes:
+  type: object
+  required:
+  - branchId
+  - tableId
+  - name
+  - price
+  - available
+  - categoryId
+  - categoryName
+  properties:
+    branchId:
+      type: string
+      example: branch-001
+    tableId:
+      type: string
+      example: tbl-001
+    name:
+      type: string
+      example: Cheeseburger
+    description:
+      type: string
+      nullable: true
+      example: Beef patty, cheddar, brioche bun.
+    price:
+      $ref: '#/components/schemas/PublicMoneyAttributes'
+    available:
+      type: boolean
+      example: true
+    categoryId:
+      type: string
+      example: cat-burgers
+    categoryName:
+      type: string
+      example: Burgers
+PublicProductResource:
+  type: object
+  required:
+  - type
+  - id
+  - attributes
+  properties:
+    type:
+      type: string
+      enum:
+      - public-product
+      example: public-product
+    id:
+      type: string
+      example: prd-001
+    attributes:
+      $ref: '#/components/schemas/PublicProductAttributes'
+PublicProductDocument:
+  type: object
+  required:
+  - data
+  properties:
+    data:
+      $ref: '#/components/schemas/PublicProductResource'

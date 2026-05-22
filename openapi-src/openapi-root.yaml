@@ -46,10 +46,12 @@ x-openapi-source:
   - paths/health.yaml
   - paths/pricelist.yaml
   - paths/catalog.yaml
+  - paths/publicapi.yaml
   schemas:
   - components/schemas/common.yaml
   - components/schemas/pricelist.yaml
   - components/schemas/catalog.yaml
+  - components/schemas/publicapi.yaml
   responses:
   - components/responses/common.yaml
   bundleOutput: ../openapi.yaml

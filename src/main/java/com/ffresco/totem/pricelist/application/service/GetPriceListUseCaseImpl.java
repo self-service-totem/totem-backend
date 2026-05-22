@@ -5,11 +5,11 @@ import com.ffresco.totem.pricelist.application.port.in.GetPriceListUseCase;
 import com.ffresco.totem.pricelist.application.port.out.LoadProductsPort;
 import com.ffresco.totem.pricelist.domain.model.PriceList;
 
-public class GetPriceListService implements GetPriceListUseCase {
+public class GetPriceListUseCaseImpl implements GetPriceListUseCase {
 
     private final LoadProductsPort loadProductsPort;
 
-    public GetPriceListService(LoadProductsPort loadProductsPort) {
+    public GetPriceListUseCaseImpl(LoadProductsPort loadProductsPort) {
         this.loadProductsPort = loadProductsPort;
     }
 

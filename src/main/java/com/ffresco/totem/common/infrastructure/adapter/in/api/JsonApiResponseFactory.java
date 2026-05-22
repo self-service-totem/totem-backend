@@ -36,31 +36,55 @@ public class JsonApiResponseFactory {
     }
 
     public APIGatewayV2HTTPResponse badRequest(String detail) {
-        return error(400, "Bad Request", detail);
+        return badRequest(null, detail);
+    }
+
+    public APIGatewayV2HTTPResponse badRequest(String code, String detail) {
+        return error(400, code, "Bad Request", detail);
     }
 
     public APIGatewayV2HTTPResponse unprocessableEntity(String detail) {
-        return error(422, "Unprocessable Entity", detail);
+        return unprocessableEntity(null, detail);
+    }
+
+    public APIGatewayV2HTTPResponse unprocessableEntity(String code, String detail) {
+        return error(422, code, "Unprocessable Entity", detail);
     }
 
     public APIGatewayV2HTTPResponse notFound(String detail) {
-        return error(404, "Not Found", detail);
+        return notFound(null, "Not Found", detail);
+    }
+
+    public APIGatewayV2HTTPResponse notFound(String code, String detail) {
+        return notFound(code, "Not Found", detail);
+    }
+
+    public APIGatewayV2HTTPResponse notFound(String code, String title, String detail) {
+        return error(404, code, title == null ? "Not Found" : title, detail);
     }
 
     public APIGatewayV2HTTPResponse conflict(String detail) {
-        return error(409, "Conflict", detail);
+        return conflict(null, detail);
+    }
+
+    public APIGatewayV2HTTPResponse conflict(String code, String detail) {
+        return error(409, code, "Conflict", detail);
     }
 
     public APIGatewayV2HTTPResponse tooManyRequests(String detail) {
-        return error(429, "Too Many Requests", detail);
+        return tooManyRequests(null, detail);
+    }
+
+    public APIGatewayV2HTTPResponse tooManyRequests(String code, String detail) {
+        return error(429, code, "Too Many Requests", detail);
     }
 
     public APIGatewayV2HTTPResponse internalServerError(String detail) {
-        return error(500, "Internal Server Error", detail);
+        return error(500, null, "Internal Server Error", detail);
     }
 
-    private APIGatewayV2HTTPResponse error(int statusCode, String title, String detail) {
-        var error = new JsonApiError(String.valueOf(statusCode), title, detail);
+    private APIGatewayV2HTTPResponse error(int statusCode, String code, String title, String detail) {
+        var error = new JsonApiError(String.valueOf(statusCode), code, title, detail);
         return json(statusCode, Map.of("errors", List.of(error)));
     }
 

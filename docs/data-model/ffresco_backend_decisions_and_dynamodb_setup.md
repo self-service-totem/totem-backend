@@ -1,98 +1,446 @@
-# FFresco / Totem SaaS - Backend Decisions & DynamoDB Setup
+# FFresco / Totem SaaS - DynamoDB Data Model
 
-## 1. Objetivo del documento
+## 1. Objetivo
 
-Este documento guarda las decisiones iniciales del backend para el proyecto de menú digital, tótem de autoatendimento, operaciones internas y administración.
+Este documento define el modelo de datos DynamoDB para el backend de FFresco / Totem SaaS.
 
-La idea es que este archivo funcione como fuente de verdad para futuras conversaciones, implementación con Claude Code/Cursor y documentación del repositorio.
+La intención es que funcione como fuente de verdad para:
+
+- Implementación con Claude Code / Cursor.
+- Diseño de adapters DynamoDB.
+- Evolución futura desde una Lambda modular hacia varias Lambdas por capability.
+- Discusión de access patterns antes de crear nuevas entidades.
+- Mantener consistencia multi-tenant.
+
+Este documento reemplaza y evoluciona el diseño inicial de `ffresco_backend_decisions_and_dynamodb_setup.md`.
 
 ---
 
-## 2. Decisión principal de arquitectura
+## 2. Decisión principal
 
 Para el MVP se usará:
 
 ```txt
-1 tabla DynamoDB genérica
-1 API/Lambda customer-facing inicial
-Separación lógica por bounded contexts
+1 tabla DynamoDB principal
+1 API/Lambda inicial
+Separación lógica por business capability
+Single table design
+Multi-tenant by key design
 ```
 
-La separación lógica esperada a futuro será:
+Tabla principal:
 
 ```txt
-restaurant-api
-catalog-api / menu-api
-ordering-api
-payment-api
+ffresco-core-${Environment}
 ```
 
-Pero para avanzar rápido en el MVP, se puede comenzar con una Lambda inicial:
+Keys principales:
 
 ```txt
-ffresco-customer-api
+pk
+sk
 ```
 
-Responsabilidad inicial:
+Índices iniciales recomendados:
 
 ```txt
-Menú público
-Contexto de mesa
-Productos visibles
-Creación de pedidos
-Cuenta de mesa
-Cuenta individual
-Llamados al mozo
+GSI1_PUBLIC_LOOKUP
+GSI2_BRANCH_WORK_QUEUE
+```
+
+Índices futuros posibles:
+
+```txt
+GSI3_BRANCH_SESSIONS
+GSI4_ENTITY_LOOKUP
+```
+
+Tabla futura recomendada para eventos/outbox:
+
+```txt
+ffresco-outbox-${Environment}
 ```
 
 ---
 
-## 3. Decisión sobre DynamoDB
+## 3. Principios de modelado
 
-Se usará una tabla inicial:
+### 3.1 Tenant space first
 
-```txt
-ffresco-core-dev
-```
+La mayoría de los datos operativos deben vivir dentro del espacio del tenant.
 
-Con claves genéricas:
+Formato base:
 
 ```txt
-PK: pk
-SK: sk
+TENANT#<tenantId>
+TENANT#<tenantId>#BRANCH#<branchId>
+TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
 ```
 
-Y un índice secundario global inicial:
+Regla:
 
 ```txt
-GSI1
-GSI1PK: gsi1pk
-GSI1SK: gsi1sk
+Todo lo que pertenezca a un tenant debe incluir tenantId en la clave principal o en la clave del índice.
 ```
+
+Esto evita mezclar datos entre tenants y facilita futuras policies, auditoría, migraciones y separación por cliente.
+
+---
+
+### 3.2 Business capability first
+
+Los paquetes de código se organizan por capability:
+
+```txt
+com.ffresco.totem.publicapi.menu
+com.ffresco.totem.restaurant
+com.ffresco.totem.catalog
+com.ffresco.totem.ordering
+com.ffresco.totem.payment
+com.ffresco.totem.kitchen
+com.ffresco.totem.common
+```
+
+El modelo DynamoDB debe acompañar esta idea usando prefijos claros en `sk` y `entityType`.
+
+Ejemplos:
+
+```txt
+TENANT
+BRANCH
+TABLE
+PUBLIC_TABLE
+PUBLIC_MENU
+TABLE_SESSION
+ORDER
+ORDER_ITEM
+WAITER_CALL
+PAYMENT_INTENT
+OUTBOX_EVENT
+```
+
+---
+
+### 3.3 No scans
+
+No se debe diseñar ningún flujo crítico que requiera `Scan`.
+
+Regla:
+
+```txt
+Cada endpoint debe resolverse con GetItem, Query, BatchGetItem o TransactWriteItems.
+```
+
+Si un access pattern requiere buscar por un dato que no está en la PK/SK principal, se debe crear un GSI o una proyección materializada.
+
+---
+
+### 3.4 Read models para endpoints públicos
+
+Los endpoints públicos deben ser rápidos y baratos.
+
+Para el MVP, el menú público se modela como un único item materializado:
+
+```txt
+PK = TENANT#<tenantId>#BRANCH#<branchId>
+SK = MENU#PUBLIC
+```
+
+Ese item contiene categorías y productos visibles.
 
 Motivo:
 
-- Permite single table design.
-- Permite guardar distintos tipos de entidad en la misma tabla.
-- Evita crear muchas tablas al comienzo.
-- Permite búsquedas alternativas como resolver una mesa pública desde el QR.
-- Mantiene bajo el costo inicial.
+- El endpoint `GET /public/menu` es read-only.
+- Se espera alto volumen de lectura.
+- Evita múltiples queries.
+- Simplifica el MVP.
+- Permite migrar luego a items por categoría/producto si el menú crece demasiado.
 
 ---
 
-## 4. Bounded contexts previstos
+### 3.5 Frontend nunca manda precios confiables
 
-### 4.1 Restaurant / Business Context
+El frontend puede mostrar precios, pero el backend siempre recalcula:
+
+```txt
+subtotal
+serviceFee
+total
+unitPrice
+discounts
+taxes
+```
+
+El pedido debe validarse contra el menú activo del backend.
+
+---
+
+## 4. Tabla principal: ffresco-core-${Environment}
+
+### 4.1 Key schema
+
+```txt
+TableName = ffresco-core-${Environment}
+
+pk = string
+sk = string
+```
+
+### 4.2 Atributos técnicos comunes
+
+Todo item debería tener, cuando aplique:
+
+```txt
+entityType
+tenantId
+branchId
+createdAt
+updatedAt
+createdBy
+updatedBy
+version
+status
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "ORDER",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "createdAt": "2026-05-22T15:30:00Z",
+  "updatedAt": "2026-05-22T15:30:00Z",
+  "version": 1,
+  "status": "PENDING"
+}
+```
+
+### 4.3 Reglas sobre dinero
+
+No guardar dinero como `double`.
+
+Preferido:
+
+```json
+{
+  "amount": "5.00",
+  "currency": "BRL"
+}
+```
+
+Alternativa técnica futura:
+
+```json
+{
+  "amountMinor": 500,
+  "currency": "BRL"
+}
+```
+
+Para el dominio Java, usar `BigDecimal` o un `Money` value object.
+
+---
+
+## 5. Índices de la tabla principal
+
+## 5.1 GSI1_PUBLIC_LOOKUP
+
+Uso principal:
+
+```txt
+Resolver IDs públicos que vienen desde QR, kiosk o links públicos.
+```
+
+Key schema:
+
+```txt
+gsi1pk
+gsi1sk
+```
+
+Nombre recomendado:
+
+```txt
+GSI1_PUBLIC_LOOKUP
+```
+
+Ejemplo para mesa pública:
+
+```txt
+gsi1pk = PUBLIC_TABLE#tbl_pub_8H7K2X
+gsi1sk = TENANT#t001#BRANCH#b001#TABLE#table001
+```
+
+Access pattern:
+
+```txt
+GET /public/menu?tableId=tbl_pub_8H7K2X
+```
+
+Query:
+
+```txt
+IndexName = GSI1_PUBLIC_LOOKUP
+gsi1pk = PUBLIC_TABLE#tbl_pub_8H7K2X
+```
+
+Resultado:
+
+```txt
+tenantId
+branchId
+tableId
+activeMenuId
+tableName
+```
+
+Nota:
+
+```txt
+Si más adelante el tenant viene en host, subdominio o path, se puede resolver la mesa con GetItem tenant-scoped.
+Mientras el endpoint solo reciba tablePublicId, GSI1 evita hacer Scan.
+```
+
+---
+
+## 5.2 GSI2_BRANCH_WORK_QUEUE
+
+Uso principal:
+
+```txt
+Pantallas operativas por sucursal.
+Cocina.
+Mozo.
+Admin operativo.
+Pedidos pendientes.
+Llamados abiertos.
+Pagos pendientes.
+```
+
+Key schema:
+
+```txt
+gsi2pk
+gsi2sk
+```
+
+Nombre recomendado:
+
+```txt
+GSI2_BRANCH_WORK_QUEUE
+```
+
+Formato:
+
+```txt
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#<workType>#STATUS#<status>
+gsi2sk = <createdAt>#<entityId>
+```
+
+Ejemplos:
+
+```txt
+TENANT#t001#BRANCH#b001#WORK#ORDER#STATUS#PENDING
+TENANT#t001#BRANCH#b001#WORK#ORDER#STATUS#PREPARING
+TENANT#t001#BRANCH#b001#WORK#WAITER_CALL#STATUS#OPEN
+TENANT#t001#BRANCH#b001#WORK#PAYMENT#STATUS#PENDING
+```
+
+Access patterns:
+
+```txt
+Kitchen screen: listar pedidos PENDING/PREPARING.
+Waiter screen: listar waiter calls OPEN.
+Admin screen: listar pagos PENDING.
+```
+
+---
+
+## 5.3 GSI3_BRANCH_SESSIONS - futuro opcional
+
+No crear de entrada salvo que aparezca el access pattern.
+
+Uso:
+
+```txt
+Listar sesiones abiertas de una sucursal.
+Dashboard del salón.
+Admin de mesas.
+```
+
+Key schema:
+
+```txt
+gsi3pk
+gsi3sk
+```
+
+Formato:
+
+```txt
+gsi3pk = TENANT#<tenantId>#BRANCH#<branchId>#TABLE_SESSION_STATUS#<status>
+gsi3sk = <openedAt>#<tableSessionId>
+```
+
+Ejemplo:
+
+```txt
+gsi3pk = TENANT#t001#BRANCH#b001#TABLE_SESSION_STATUS#OPEN
+gsi3sk = 2026-05-22T15:30:00Z#ts001
+```
+
+---
+
+## 5.4 GSI4_ENTITY_LOOKUP - futuro opcional
+
+No crear de entrada salvo necesidad real.
+
+Uso:
+
+```txt
+Buscar entidades por ID global interno sin conocer su PK natural.
+Debug.
+Admin.
+Integraciones.
+```
+
+Key schema:
+
+```txt
+gsi4pk
+gsi4sk
+```
+
+Formato:
+
+```txt
+gsi4pk = ENTITY#<entityType>#<entityId>
+gsi4sk = TENANT#<tenantId>#BRANCH#<branchId>
+```
+
+Ejemplo:
+
+```txt
+gsi4pk = ENTITY#ORDER#ord001
+gsi4sk = TENANT#t001#BRANCH#b001
+```
+
+---
+
+## 6. Dominios y entidades
+
+## 6.1 Restaurant / Business Context
 
 Responsable de:
 
 ```txt
 Tenant
 Restaurant
-Branch / Sucursal
-Tables / Mesas
+Branch
+Tables
 QR codes
-Kiosks / Tótems
+Kiosks
 Business settings
 Currency
 Language
@@ -100,7 +448,142 @@ Service fee
 Opening hours
 ```
 
-### 4.2 Catalog / Menu Context
+---
+
+### 6.1.1 Tenant / Restaurant metadata
+
+```txt
+pk = TENANT#<tenantId>
+sk = METADATA
+entityType = TENANT
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "TENANT",
+  "tenantId": "t001",
+  "restaurantName": "Pertinho do Ceu",
+  "logoUrl": "https://example.com/logo.png",
+  "language": "pt-BR",
+  "currency": "BRL",
+  "serviceFeeRate": "0.10",
+  "status": "ACTIVE"
+}
+```
+
+Access patterns:
+
+```txt
+Get tenant metadata by tenantId.
+```
+
+---
+
+### 6.1.2 Branch / Sucursal
+
+```txt
+pk = TENANT#<tenantId>
+sk = BRANCH#<branchId>
+entityType = BRANCH
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "BRANCH",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "name": "Sucursal Centro",
+  "address": "Rua Centro 123",
+  "status": "ACTIVE",
+  "timezone": "America/Sao_Paulo"
+}
+```
+
+Access patterns:
+
+```txt
+Listar branches de un tenant:
+PK = TENANT#t001
+SK begins_with BRANCH#
+```
+
+---
+
+### 6.1.3 Table / Mesa física
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = TABLE#<tableId>
+entityType = TABLE
+gsi1pk = PUBLIC_TABLE#<tablePublicId>
+gsi1sk = TENANT#<tenantId>#BRANCH#<branchId>#TABLE#<tableId>
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "TABLE",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableId": "table001",
+  "tablePublicId": "tbl_pub_8H7K2X",
+  "tableName": "Mesa 140",
+  "active": true,
+  "activeMenuId": "menu001",
+  "currentTableSessionId": "ts001"
+}
+```
+
+Access patterns:
+
+```txt
+Get table by tenant/branch/tableId.
+Resolve public table from QR using GSI1.
+List branch tables.
+```
+
+Notas:
+
+```txt
+tablePublicId debe ser difícil de adivinar.
+No usar mesa-01 como ID público.
+```
+
+---
+
+### 6.1.4 Kiosk / Tótem
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = KIOSK#<kioskId>
+entityType = KIOSK
+gsi1pk = KIOSK_PUBLIC#<kioskPublicId>
+gsi1sk = TENANT#<tenantId>#BRANCH#<branchId>#KIOSK#<kioskId>
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "KIOSK",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "kioskId": "kiosk001",
+  "kioskPublicId": "kiosk_pub_3H2X9Q",
+  "name": "Totem Entrada",
+  "status": "ACTIVE",
+  "activeMenuId": "menu001"
+}
+```
+
+---
+
+## 6.2 Catalog / Menu Context
 
 Responsable de:
 
@@ -115,7 +598,176 @@ Promotions
 Basic stock
 ```
 
-### 4.3 Ordering Context
+---
+
+### 6.2.1 Product master
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = PRODUCT#<productId>
+entityType = PRODUCT
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "PRODUCT",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "productId": "prod-coca-zero",
+  "name": "Coca Cola Zero",
+  "description": "Lata 350ml gelada",
+  "basePrice": {
+    "amount": "8.90",
+    "currency": "BRL"
+  },
+  "imageUrl": "https://example.com/coca.png",
+  "status": "ACTIVE"
+}
+```
+
+Access patterns:
+
+```txt
+Get product by branch/productId.
+List products by branch.
+```
+
+---
+
+### 6.2.2 Category master
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = CATEGORY#<categoryId>
+entityType = CATEGORY
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "CATEGORY",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "categoryId": "cat-bebidas",
+  "name": "Bebidas",
+  "displayOrder": 1,
+  "status": "ACTIVE"
+}
+```
+
+---
+
+### 6.2.3 Price list / Menu version metadata
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = MENU_VERSION#<menuId>
+entityType = MENU_VERSION
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "MENU_VERSION",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "menuId": "menu001",
+  "name": "Menu Principal",
+  "status": "ACTIVE",
+  "publishedAt": "2026-05-22T10:00:00Z"
+}
+```
+
+---
+
+### 6.2.4 Public menu materialized item - MVP
+
+Decisión MVP:
+
+```txt
+Un solo item materializado para el menú público.
+```
+
+Key:
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = MENU#PUBLIC
+entityType = PUBLIC_MENU
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "PUBLIC_MENU",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "menuId": "menu001",
+  "currency": "BRL",
+  "publishedAt": "2026-05-22T10:00:00Z",
+  "categories": [
+    {
+      "id": "cat-bebidas",
+      "name": "Bebidas",
+      "displayOrder": 1,
+      "products": [
+        {
+          "id": "prod-coca-zero",
+          "name": "Coca Cola Zero",
+          "description": "Lata 350ml gelada",
+          "price": {
+            "amount": "8.90",
+            "currency": "BRL"
+          },
+          "imageUrl": "https://example.com/coca.png",
+          "featured": true,
+          "available": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+Access patterns:
+
+```txt
+Get public menu for branch.
+Get product detail by reading the public menu and finding the product.
+```
+
+Regla de productos unavailable:
+
+```txt
+Por defecto, no devolver productos con available=false en el menú público.
+El menú customer-facing solo muestra productos que se pueden pedir.
+Si luego negocio quiere mostrar productos agotados, agregar includeUnavailable=true o una configuración.
+```
+
+---
+
+### 6.2.5 Public menu split items - evolución futura
+
+Cuando el menú crezca o haya necesidad de updates parciales, se puede migrar a:
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>#MENU#PUBLIC
+sk = CATEGORY#<displayOrder>#<categoryId>
+
+pk = TENANT#<tenantId>#BRANCH#<branchId>#MENU#PUBLIC
+sk = PRODUCT#<categoryId>#<displayOrder>#<productId>
+```
+
+No usar en MVP salvo que el item materializado se vuelva demasiado grande o difícil de actualizar.
+
+---
+
+## 6.3 Ordering Context
 
 Responsable de:
 
@@ -129,7 +781,271 @@ Close bill requests
 Waiter calls
 ```
 
-### 4.4 Payment Context
+---
+
+### 6.3.1 TableSession
+
+Una mesa física no es una cuenta abierta.
+
+La cuenta abierta se modela como:
+
+```txt
+TableSession
+```
+
+Key:
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+sk = METADATA
+entityType = TABLE_SESSION
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "TABLE_SESSION",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableId": "table001",
+  "tablePublicId": "tbl_pub_8H7K2X",
+  "tableSessionId": "ts001",
+  "status": "OPEN",
+  "openedAt": "2026-05-22T12:00:00Z",
+  "closedAt": null,
+  "subtotal": {
+    "amount": "0.00",
+    "currency": "BRL"
+  },
+  "serviceFee": {
+    "amount": "0.00",
+    "currency": "BRL"
+  },
+  "total": {
+    "amount": "0.00",
+    "currency": "BRL"
+  }
+}
+```
+
+Access patterns:
+
+```txt
+Get session by tableSessionId.
+Get all orders/calls/payments for a session.
+```
+
+---
+
+### 6.3.2 Active session pointer
+
+Para encontrar rápido la sesión abierta de una mesa:
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>
+sk = TABLE#<tableId>#ACTIVE_SESSION
+entityType = ACTIVE_TABLE_SESSION
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "ACTIVE_TABLE_SESSION",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableId": "table001",
+  "tableSessionId": "ts001",
+  "status": "OPEN",
+  "openedAt": "2026-05-22T12:00:00Z"
+}
+```
+
+Uso:
+
+```txt
+POST /public/tables/{tablePublicId}/orders
+1. Resuelve tablePublicId.
+2. GetItem ACTIVE_SESSION.
+3. Si no existe, crea TableSession + ActiveSession pointer en una transacción.
+```
+
+---
+
+### 6.3.3 Order
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+sk = ORDER#<createdAt>#<orderId>
+entityType = ORDER
+
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#ORDER#STATUS#<status>
+gsi2sk = <createdAt>#<orderId>
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "ORDER",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableSessionId": "ts001",
+  "tableId": "table001",
+  "tablePublicId": "tbl_pub_8H7K2X",
+  "orderId": "ord001",
+  "orderNumber": "1042",
+  "customerName": "Fernando",
+  "status": "PENDING",
+  "createdAt": "2026-05-22T12:34:56Z",
+  "subtotal": {
+    "amount": "17.80",
+    "currency": "BRL"
+  },
+  "serviceFee": {
+    "amount": "1.78",
+    "currency": "BRL"
+  },
+  "total": {
+    "amount": "19.58",
+    "currency": "BRL"
+  },
+  "items": [
+    {
+      "productId": "prod-coca-zero",
+      "name": "Coca Cola Zero",
+      "quantity": 2,
+      "unitPrice": {
+        "amount": "8.90",
+        "currency": "BRL"
+      },
+      "notes": ""
+    }
+  ],
+  "gsi2pk": "TENANT#t001#BRANCH#b001#WORK#ORDER#STATUS#PENDING",
+  "gsi2sk": "2026-05-22T12:34:56Z#ord001"
+}
+```
+
+Status iniciales:
+
+```txt
+PENDING
+CONFIRMED
+PREPARING
+READY
+DELIVERED
+CANCELLED
+```
+
+Access patterns:
+
+```txt
+List orders by table session.
+List pending/preparing orders for kitchen.
+Get order detail within session.
+```
+
+---
+
+### 6.3.4 Waiter Call
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+sk = WAITER_CALL#<createdAt>#<waiterCallId>
+entityType = WAITER_CALL
+
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#WAITER_CALL#STATUS#<status>
+gsi2sk = <createdAt>#<waiterCallId>
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "WAITER_CALL",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableSessionId": "ts001",
+  "waiterCallId": "wc001",
+  "customerName": "Fernando",
+  "phone": "+5581999991234",
+  "reason": "CALL_WAITER",
+  "status": "OPEN",
+  "createdAt": "2026-05-22T12:40:00Z",
+  "gsi2pk": "TENANT#t001#BRANCH#b001#WORK#WAITER_CALL#STATUS#OPEN",
+  "gsi2sk": "2026-05-22T12:40:00Z#wc001"
+}
+```
+
+Reasons:
+
+```txt
+CALL_WAITER
+REQUEST_BILL
+ASK_ORDER_STATUS
+OTHER
+```
+
+Status:
+
+```txt
+OPEN
+ACKNOWLEDGED
+RESOLVED
+CANCELLED
+```
+
+---
+
+### 6.3.5 Bill / Account projection
+
+Para MVP, la cuenta se puede calcular leyendo los orders de la session.
+
+Cuando crezca, crear proyección:
+
+```txt
+pk = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+sk = BILL#CURRENT
+entityType = BILL
+```
+
+Ejemplo:
+
+```json
+{
+  "entityType": "BILL",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableSessionId": "ts001",
+  "status": "OPEN",
+  "subtotal": {
+    "amount": "100.00",
+    "currency": "BRL"
+  },
+  "serviceFee": {
+    "amount": "10.00",
+    "currency": "BRL"
+  },
+  "total": {
+    "amount": "110.00",
+    "currency": "BRL"
+  },
+  "paidAmount": {
+    "amount": "30.00",
+    "currency": "BRL"
+  },
+  "remainingAmount": {
+    "amount": "80.00",
+    "currency": "BRL"
+  }
+}
+```
+
+---
+
+## 6.4 Payment Context
 
 Responsable futuro de:
 
@@ -145,246 +1061,396 @@ Receipts
 
 ---
 
-## 5. Concepto clave: tablePublicId
-
-No usar como identificador público valores simples como:
+### 6.4.1 Payment Intent
 
 ```txt
-mesa-01
+pk = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+sk = PAYMENT_INTENT#<createdAt>#<paymentIntentId>
+entityType = PAYMENT_INTENT
+
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#PAYMENT#STATUS#<status>
+gsi2sk = <createdAt>#<paymentIntentId>
 ```
 
-Porque en un SaaS multi-tenant muchas sucursales pueden tener una mesa 1.
+Ejemplo:
 
-Para los QR públicos usar:
+```json
+{
+  "entityType": "PAYMENT_INTENT",
+  "tenantId": "t001",
+  "branchId": "b001",
+  "tableSessionId": "ts001",
+  "paymentIntentId": "pay001",
+  "provider": "MERCADO_PAGO",
+  "status": "PENDING",
+  "amount": {
+    "amount": "50.00",
+    "currency": "BRL"
+  },
+  "createdAt": "2026-05-22T13:00:00Z",
+  "gsi2pk": "TENANT#t001#BRANCH#b001#WORK#PAYMENT#STATUS#PENDING",
+  "gsi2sk": "2026-05-22T13:00:00Z#pay001"
+}
+```
+
+Status:
 
 ```txt
-tablePublicId = tbl_pub_8H7K2X
-```
-
-Ejemplo de URL:
-
-```txt
-/menu/tbl_pub_8H7K2X
-```
-
-O endpoint:
-
-```http
-GET /public/menu?tableId=tbl_pub_8H7K2X
-```
-
-Internamente ese ID resuelve:
-
-```txt
-tenantId
-branchId
-tableId interno
-tableName
-restaurantName
-activeMenuId
+PENDING
+AUTHORIZED
+PAID
+FAILED
+CANCELLED
+REFUNDED
 ```
 
 ---
 
-## 6. Concepto clave: TableSession
+## 7. Access patterns principales
 
-Una mesa física no es lo mismo que una cuenta abierta.
+## 7.1 GET /public/menu?tableId={tablePublicId}
 
-Se usará el concepto:
+Flujo:
 
 ```txt
-TableSession
+1. Query GSI1_PUBLIC_LOOKUP:
+   gsi1pk = PUBLIC_TABLE#<tablePublicId>
+
+2. Obtener:
+   tenantId
+   branchId
+   tableId
+   activeMenuId
+   tableName
+
+3. GetItem menú materializado:
+   pk = TENANT#<tenantId>#BRANCH#<branchId>
+   sk = MENU#PUBLIC
+
+4. Filtrar products.available = true.
+
+5. Devolver JSON:API response.
+```
+
+---
+
+## 7.2 GET /public/menu/products/{productId}?tableId={tablePublicId}
+
+Flujo MVP:
+
+```txt
+1. Resolver tablePublicId por GSI1.
+2. GetItem MENU#PUBLIC.
+3. Buscar productId dentro del menú materializado.
+4. Si existe y available=true, devolver detalle.
+5. Si no existe o no pertenece al menú de esa branch, retornar 404 business error.
+```
+
+Nota:
+
+```txt
+Aunque leer el menú entero para un detalle parezca menos óptimo, para MVP simplifica.
+Si el menú crece, migrar a split items por producto.
+```
+
+---
+
+## 7.3 POST /public/tables/{tablePublicId}/orders
+
+Flujo:
+
+```txt
+1. Resolver tablePublicId por GSI1.
+2. Resolver o crear TableSession OPEN.
+3. Leer MENU#PUBLIC.
+4. Validar productos y cantidades.
+5. Filtrar/validar que productos estén available=true.
+6. Calcular precios en backend.
+7. Crear ORDER dentro de la session.
+8. Actualizar ACTIVE_SESSION / BILL si aplica.
+9. Escribir OUTBOX_EVENT si hay integración/eventos.
+10. Devolver orden creada.
+```
+
+Transacción recomendada:
+
+```txt
+TransactWriteItems:
+- Put ORDER
+- Update/Put BILL#CURRENT
+- Put OUTBOX_EVENT, si se usa outbox
+```
+
+---
+
+## 7.4 Kitchen screen
+
+Query:
+
+```txt
+IndexName = GSI2_BRANCH_WORK_QUEUE
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#ORDER#STATUS#PENDING
+```
+
+También:
+
+```txt
+STATUS#PREPARING
+STATUS#READY
+```
+
+---
+
+## 7.5 Waiter screen
+
+Query:
+
+```txt
+IndexName = GSI2_BRANCH_WORK_QUEUE
+gsi2pk = TENANT#<tenantId>#BRANCH#<branchId>#WORK#WAITER_CALL#STATUS#OPEN
+```
+
+---
+
+## 7.6 Admin branch sessions - futuro
+
+Si se necesita listar sesiones abiertas:
+
+```txt
+IndexName = GSI3_BRANCH_SESSIONS
+gsi3pk = TENANT#<tenantId>#BRANCH#<branchId>#TABLE_SESSION_STATUS#OPEN
+```
+
+Si no existe GSI3, mantener este endpoint fuera del MVP o resolverlo con otra proyección.
+
+---
+
+## 8. Outbox / eventos asíncronos
+
+## 8.1 Decisión recomendada
+
+Para el MVP simple, se puede no implementar outbox todavía.
+
+Cuando se agreguen colas, integraciones o eventos reales, se recomienda una tabla separada:
+
+```txt
+ffresco-outbox-${Environment}
+```
+
+Motivo:
+
+- Evita mezclar polling de eventos con la tabla core.
+- Permite TTL propio.
+- Permite retries y locking sin ensuciar entidades de negocio.
+- Permite escalar consumidores/event processors por separado.
+- Mantiene más claro el modelo operativo.
+
+---
+
+## 8.2 Tabla outbox recomendada
+
+```txt
+TableName = ffresco-outbox-${Environment}
+
+pk
+sk
+
+GSI1_OUTBOX_BY_AGGREGATE:
+gsi1pk
+gsi1sk
+```
+
+Key principal para eventos pendientes:
+
+```txt
+pk = OUTBOX#STATUS#<status>#BUCKET#<yyyyMMdd>#<bucketNumber>
+sk = <createdAt>#<eventId>
 ```
 
 Ejemplo:
 
 ```txt
-Mesa 140
-Session actual: ts_20260515_001
-Estado: OPEN
+pk = OUTBOX#STATUS#PENDING#BUCKET#20260522#03
+sk = 2026-05-22T12:34:56Z#evt001
 ```
 
-Esto permite diferenciar:
-
-```txt
-Mesa 140 al mediodía
-Mesa 140 a la noche
-Mesa 140 mañana
-```
-
-Los pedidos y llamados del mozo se guardan dentro de la sesión activa.
-
----
-
-## 7. Modelo base de ítems DynamoDB
-
-### 7.1 Tenant / Restaurant metadata
-
-```txt
-pk = TENANT#t001
-sk = METADATA
-entityType = TENANT
-```
-
-Atributos esperados:
+Item:
 
 ```json
 {
-  "tenantId": "t001",
-  "restaurantName": "Pertinho do Ceu",
-  "logoUrl": "https://...",
-  "language": "pt-BR",
-  "currency": "BRL",
-  "serviceFeeRate": 0.10
-}
-```
-
----
-
-### 7.2 Branch / Sucursal
-
-```txt
-pk = TENANT#t001
-sk = BRANCH#b001
-entityType = BRANCH
-```
-
-Atributos esperados:
-
-```json
-{
-  "branchId": "b001",
-  "name": "Sucursal Centro",
-  "address": "..."
-}
-```
-
----
-
-### 7.3 Table / Mesa
-
-```txt
-pk = TENANT#t001#BRANCH#b001
-sk = TABLE#table001
-entityType = TABLE
-gsi1pk = TABLE_PUBLIC#tbl_pub_8H7K2X
-gsi1sk = METADATA
-```
-
-Atributos esperados:
-
-```json
-{
+  "eventId": "evt001",
+  "eventType": "ORDER_CREATED",
   "tenantId": "t001",
   "branchId": "b001",
-  "tableId": "table001",
-  "tablePublicId": "tbl_pub_8H7K2X",
-  "tableName": "Mesa 140",
-  "active": true,
-  "activeMenuId": "menu001"
-}
-```
-
----
-
-### 7.4 Public Menu Category
-
-```txt
-pk = PUBLIC_MENU#t001#b001#menu001
-sk = CATEGORY#001#cat-bebidas
-entityType = MENU_CATEGORY
-```
-
-Atributos esperados:
-
-```json
-{
-  "categoryId": "cat-bebidas",
-  "name": "Bebidas",
-  "imageUrl": "https://...",
-  "order": 1
-}
-```
-
----
-
-### 7.5 Public Menu Product
-
-```txt
-pk = PUBLIC_MENU#t001#b001#menu001
-sk = PRODUCT#cat-bebidas#001#prod-coca-zero
-entityType = MENU_PRODUCT
-```
-
-Atributos esperados:
-
-```json
-{
-  "productId": "prod-coca-zero",
-  "name": "Coca Cola Zero",
-  "description": "Lata 350ml gelada",
-  "price": 8.9,
-  "imageUrl": "https://...",
-  "categoryId": "cat-bebidas",
-  "featured": true,
-  "available": true
-}
-```
-
----
-
-### 7.6 Table Session
-
-```txt
-pk = TABLE_SESSION#ts001
-sk = METADATA
-entityType = TABLE_SESSION
-```
-
-Atributos esperados:
-
-```json
-{
-  "tableSessionId": "ts001",
-  "tenantId": "t001",
-  "branchId": "b001",
-  "tableId": "table001",
-  "tablePublicId": "tbl_pub_8H7K2X",
-  "status": "OPEN",
-  "openedAt": "2026-05-15T12:00:00Z"
-}
-```
-
----
-
-### 7.7 Order
-
-```txt
-pk = TABLE_SESSION#ts001
-sk = ORDER#2026-05-15T12:34:56Z#ord001
-entityType = ORDER
-gsi1pk = BRANCH#b001#ORDER_STATUS#PENDING
-gsi1sk = 2026-05-15T12:34:56Z#ord001
-```
-
-Atributos esperados:
-
-```json
-{
-  "orderId": "ord001",
-  "orderNumber": "1042",
-  "customerName": "Fernando",
+  "aggregateType": "ORDER",
+  "aggregateId": "ord001",
   "status": "PENDING",
-  "subtotal": 17.8,
-  "serviceFee": 1.78,
-  "total": 19.58,
-  "items": [
+  "createdAt": "2026-05-22T12:34:56Z",
+  "availableAt": "2026-05-22T12:34:56Z",
+  "attempts": 0,
+  "maxAttempts": 5,
+  "payload": {
+    "orderId": "ord001",
+    "tableSessionId": "ts001"
+  }
+}
+```
+
+Status:
+
+```txt
+PENDING
+PROCESSING
+PROCESSED
+FAILED
+DEAD_LETTER
+```
+
+---
+
+## 8.3 GSI1_OUTBOX_BY_AGGREGATE
+
+Uso:
+
+```txt
+Auditar eventos generados por una entidad.
+Debug.
+Reprocesamiento manual.
+```
+
+Formato:
+
+```txt
+gsi1pk = AGGREGATE#<aggregateType>#<aggregateId>
+gsi1sk = <createdAt>#<eventId>
+```
+
+Ejemplo:
+
+```txt
+gsi1pk = AGGREGATE#ORDER#ord001
+gsi1sk = 2026-05-22T12:34:56Z#evt001
+```
+
+---
+
+## 8.4 Outbox dentro de core table - alternativa MVP
+
+Si se quiere evitar crear otra tabla al principio:
+
+```txt
+pk = TENANT#<tenantId>#OUTBOX#STATUS#<status>#BUCKET#<yyyyMMdd>#<bucketNumber>
+sk = <createdAt>#<eventId>
+entityType = OUTBOX_EVENT
+```
+
+Pero esta opción debe ser temporal.
+
+Recomendación:
+
+```txt
+Core table para datos de negocio.
+Outbox table para eventos operativos.
+```
+
+---
+
+## 9. Convenciones de nombres
+
+## 9.1 IDs públicos
+
+```txt
+tablePublicId = tbl_pub_<random>
+kioskPublicId = kiosk_pub_<random>
+menuPublicId = menu_pub_<random> // si se necesita
+```
+
+Reglas:
+
+```txt
+No usar nombres secuenciales públicos.
+No usar mesa-01 como ID público.
+No exponer tenantId/branchId si no es necesario.
+```
+
+---
+
+## 9.2 IDs internos
+
+```txt
+tenantId = t001
+branchId = b001
+tableId = table001
+tableSessionId = ts001
+orderId = ord001
+paymentIntentId = pay001
+waiterCallId = wc001
+```
+
+Para producción, usar IDs no predecibles o UUID/ULID.
+
+---
+
+## 9.3 Timestamps
+
+Usar ISO-8601 UTC:
+
+```txt
+2026-05-22T12:34:56Z
+```
+
+Los timestamps en `sk` deben ordenar cronológicamente.
+
+---
+
+## 10. JSON:API responses
+
+Los endpoints públicos deben devolver JSON:API.
+
+Ejemplo `GET /public/menu`:
+
+```json
+{
+  "data": {
+    "type": "public-menu",
+    "id": "branch-001-menu",
+    "attributes": {
+      "branchId": "b001",
+      "tableId": "tbl_pub_8H7K2X",
+      "currency": "BRL",
+      "categories": [
+        {
+          "id": "cat-bebidas",
+          "name": "Bebidas",
+          "products": [
+            {
+              "id": "prod-coca-zero",
+              "name": "Coca Cola Zero",
+              "description": "Lata 350ml gelada",
+              "price": {
+                "amount": "8.90",
+                "currency": "BRL"
+              },
+              "available": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+Ejemplo error:
+
+```json
+{
+  "errors": [
     {
-      "productId": "prod-coca-zero",
-      "name": "Coca Cola Zero",
-      "quantity": 2,
-      "unitPrice": 8.9,
-      "notes": ""
+      "status": "404",
+      "code": "PUBLIC_TABLE_NOT_FOUND",
+      "title": "Public table not found",
+      "detail": "No public table was found for tableId tbl_pub_invalid."
     }
   ]
 }
@@ -392,271 +1458,116 @@ Atributos esperados:
 
 ---
 
-### 7.8 Waiter Call
-
-```txt
-pk = TABLE_SESSION#ts001
-sk = WAITER_CALL#2026-05-15T12:40:00Z#wc001
-entityType = WAITER_CALL
-gsi1pk = BRANCH#b001#WAITER_CALL_STATUS#OPEN
-gsi1sk = 2026-05-15T12:40:00Z#wc001
-```
-
-Atributos esperados:
-
-```json
-{
-  "waiterCallId": "wc001",
-  "customerName": "Fernando",
-  "phone": "+5581999991234",
-  "reason": "CALL_WAITER",
-  "status": "OPEN",
-  "createdAt": "2026-05-15T12:40:00Z"
-}
-```
-
----
-
-## 8. Endpoints públicos recomendados para el customer frontend
-
-### 8.1 Public Menu
-
-```http
-GET /public/menu?tableId={tablePublicId}
-```
-
-Devuelve contexto, categorías y productos en una sola respuesta.
-
-Response esperada:
-
-```json
-{
-  "context": {
-    "tableId": "tbl_pub_8H7K2X",
-    "tableName": "Mesa 140",
-    "restaurantName": "Pertinho do Ceu",
-    "restaurantLogoUrl": "https://...",
-    "language": "pt-BR",
-    "currency": "BRL",
-    "serviceFeeRate": 0.1
-  },
-  "categories": [
-    {
-      "id": "cat-bebidas",
-      "name": "Bebidas",
-      "imageUrl": "https://...",
-      "order": 1
-    }
-  ],
-  "products": [
-    {
-      "id": "prod-coca-zero",
-      "name": "Coca Cola Zero",
-      "description": "Lata 350ml gelada",
-      "price": 8.9,
-      "imageUrl": "https://...",
-      "categoryId": "cat-bebidas",
-      "featured": true,
-      "available": true
-    }
-  ]
-}
-```
-
----
-
-### 8.2 Product Detail
-
-```http
-GET /public/menu/products/{productId}?tableId={tablePublicId}
-```
-
----
-
-### 8.3 Place Order
-
-```http
-POST /public/tables/{tablePublicId}/orders
-```
-
-Request:
-
-```json
-{
-  "customerName": "Fernando",
-  "phone": "+5581999991234",
-  "items": [
-    {
-      "productId": "prod-coca-zero",
-      "quantity": 2,
-      "notes": ""
-    }
-  ]
-}
-```
-
-Regla importante:
-
-```txt
-El backend calcula precios y totales.
-El frontend nunca debe enviar precios confiables.
-```
-
----
-
-### 8.4 My Orders
-
-```http
-GET /public/tables/{tablePublicId}/orders?customerName={customerName}
-```
-
----
-
-### 8.5 Bill
-
-```http
-GET /public/tables/{tablePublicId}/bill
-```
-
----
-
-### 8.6 Close Bill Request
-
-```http
-POST /public/tables/{tablePublicId}/bill/close-request
-```
-
-Request:
-
-```json
-{
-  "customerName": "Fernando",
-  "scope": "MINE"
-}
-```
-
-Valores posibles:
-
-```txt
-MINE
-TABLE
-```
-
----
-
-### 8.7 Waiter Call
-
-```http
-POST /public/tables/{tablePublicId}/waiter-call
-```
-
-Request:
-
-```json
-{
-  "customerName": "Fernando",
-  "phone": "+5581999991234",
-  "reason": "CALL_WAITER"
-}
-```
-
-Valores posibles:
-
-```txt
-CALL_WAITER
-REQUEST_BILL
-ASK_ORDER_STATUS
-OTHER
-```
-
----
-
-## 9. Cómo resolver el flujo GET /public/menu
-
-El endpoint hace:
-
-```txt
-1. Recibe tablePublicId.
-2. Query en GSI1:
-   gsi1pk = TABLE_PUBLIC#{tablePublicId}
-   gsi1sk = METADATA
-3. Obtiene tenantId, branchId, tableId y activeMenuId.
-4. Query a la tabla principal:
-   pk = PUBLIC_MENU#{tenantId}#{branchId}#{activeMenuId}
-5. Separa ítems entityType MENU_CATEGORY y MENU_PRODUCT.
-6. Devuelve context + categories + products.
-```
-
----
-
-## 10. Cómo resolver el flujo POST /orders
-
-El endpoint hace:
-
-```txt
-1. Recibe tablePublicId.
-2. Resuelve la mesa usando GSI1.
-3. Busca o crea TableSession OPEN.
-4. Valida que los productos existan en el PUBLIC_MENU activo.
-5. Calcula precios en backend.
-6. Calcula subtotal, serviceFee y total.
-7. Crea ORDER dentro de TABLE_SESSION.
-8. Genera orderNumber.
-9. Devuelve el pedido creado.
-```
-
----
-
-## 11. SAM / CloudFormation - DynamoDB Table
-
-Agregar este recurso al `template.yaml`.
+## 11. CloudFormation / SAM - Core table
 
 ```yaml
-Resources:
-  FfrescoCoreTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "ffresco-core-${Environment}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: pk
-          AttributeType: S
-        - AttributeName: sk
-          AttributeType: S
-        - AttributeName: gsi1pk
-          AttributeType: S
-        - AttributeName: gsi1sk
-          AttributeType: S
-      KeySchema:
-        - AttributeName: pk
-          KeyType: HASH
-        - AttributeName: sk
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: GSI1
-          KeySchema:
-            - AttributeName: gsi1pk
-              KeyType: HASH
-            - AttributeName: gsi1sk
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-      Tags:
-        - Key: Project
-          Value: ffresco
-        - Key: Environment
-          Value: !Ref Environment
+FfrescoCoreTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: !Sub "ffresco-core-${Environment}"
+    BillingMode: PAY_PER_REQUEST
+    AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      - AttributeName: gsi1pk
+        AttributeType: S
+      - AttributeName: gsi1sk
+        AttributeType: S
+      - AttributeName: gsi2pk
+        AttributeType: S
+      - AttributeName: gsi2sk
+        AttributeType: S
+    KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    GlobalSecondaryIndexes:
+      - IndexName: GSI1_PUBLIC_LOOKUP
+        KeySchema:
+          - AttributeName: gsi1pk
+            KeyType: HASH
+          - AttributeName: gsi1sk
+            KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      - IndexName: GSI2_BRANCH_WORK_QUEUE
+        KeySchema:
+          - AttributeName: gsi2pk
+            KeyType: HASH
+          - AttributeName: gsi2sk
+            KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+    PointInTimeRecoverySpecification:
+      PointInTimeRecoveryEnabled: true
+    SSESpecification:
+      SSEEnabled: true
+    Tags:
+      - Key: Project
+        Value: ffresco
+      - Key: Environment
+        Value: !Ref Environment
 ```
 
 ---
 
-## 12. SAM - Environment variable para la Lambda
+## 12. CloudFormation / SAM - Outbox table futura
 
-Agregar a la Lambda:
+No crear necesariamente en el PR actual.
+
+Crear cuando se implementen eventos asíncronos reales.
+
+```yaml
+FfrescoOutboxTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: !Sub "ffresco-outbox-${Environment}"
+    BillingMode: PAY_PER_REQUEST
+    AttributeDefinitions:
+      - AttributeName: pk
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      - AttributeName: gsi1pk
+        AttributeType: S
+      - AttributeName: gsi1sk
+        AttributeType: S
+    KeySchema:
+      - AttributeName: pk
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+    GlobalSecondaryIndexes:
+      - IndexName: GSI1_OUTBOX_BY_AGGREGATE
+        KeySchema:
+          - AttributeName: gsi1pk
+            KeyType: HASH
+          - AttributeName: gsi1sk
+            KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+    TimeToLiveSpecification:
+      AttributeName: ttl
+      Enabled: true
+    PointInTimeRecoverySpecification:
+      PointInTimeRecoveryEnabled: true
+    SSESpecification:
+      SSEEnabled: true
+    Tags:
+      - Key: Project
+        Value: ffresco
+      - Key: Environment
+        Value: !Ref Environment
+```
+
+---
+
+## 13. Environment variables
+
+Core table:
 
 ```yaml
 Environment:
@@ -664,13 +1575,19 @@ Environment:
     FFRESCO_CORE_TABLE_NAME: !Ref FfrescoCoreTable
 ```
 
-Si ya existe `Environment`, agregar solo la variable dentro de `Variables`.
+Outbox table futura:
+
+```yaml
+Environment:
+  Variables:
+    FFRESCO_OUTBOX_TABLE_NAME: !Ref FfrescoOutboxTable
+```
 
 ---
 
-## 13. SAM - Permisos DynamoDB para la Lambda
+## 14. Permissions
 
-Agregar a la función Lambda:
+Para MVP:
 
 ```yaml
 Policies:
@@ -678,129 +1595,81 @@ Policies:
       TableName: !Ref FfrescoCoreTable
 ```
 
-Si se quiere ser más estricto, se puede reemplazar luego por una policy custom con acciones específicas:
+Para producción, migrar a policy custom:
+
+```txt
+dynamodb:GetItem
+dynamodb:PutItem
+dynamodb:UpdateItem
+dynamodb:DeleteItem
+dynamodb:Query
+dynamodb:BatchGetItem
+dynamodb:TransactWriteItems
+```
+
+Para Outbox futura:
 
 ```txt
 dynamodb:GetItem
 dynamodb:PutItem
 dynamodb:UpdateItem
 dynamodb:Query
-dynamodb:BatchGetItem
-```
-
-Pero para MVP `DynamoDBCrudPolicy` es aceptable.
-
----
-
-## 14. Pasos para crear la tabla vía SAM
-
-### Paso 1: agregar el recurso al template
-
-Agregar `FfrescoCoreTable` dentro de `Resources`.
-
-### Paso 2: agregar variable de entorno a la Lambda
-
-Agregar:
-
-```yaml
-FFRESCO_CORE_TABLE_NAME: !Ref FfrescoCoreTable
-```
-
-### Paso 3: agregar policy a la Lambda
-
-Agregar:
-
-```yaml
-Policies:
-  - DynamoDBCrudPolicy:
-      TableName: !Ref FfrescoCoreTable
-```
-
-### Paso 4: validar template
-
-```bash
-sam validate --template-file template.yaml
-```
-
-### Paso 5: build
-
-```bash
-sam build --template-file template.yaml
-```
-
-### Paso 6: deploy
-
-```bash
-sam deploy \
-  --stack-name ffresco-customer-api-dev \
-  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-  --region sa-east-1 \
-  --no-confirm-changeset \
-  --no-fail-on-empty-changeset \
-  --parameter-overrides Environment=dev ReleaseVersion=local
-```
-
-Si usás bucket de artifacts explícito:
-
-```bash
-sam deploy \
-  --stack-name ffresco-customer-api-dev \
-  --s3-bucket <TU_BUCKET_SAM_ARTIFACTS> \
-  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-  --region sa-east-1 \
-  --no-confirm-changeset \
-  --no-fail-on-empty-changeset \
-  --parameter-overrides Environment=dev ReleaseVersion=local
 ```
 
 ---
 
-## 15. Notas de costo
+## 15. Reglas para Claude Code / Cursor
 
-Para laboratorio/MVP con:
-
-```txt
-DynamoDB On-Demand
-1 GSI
-Lambda
-API Gateway HTTP API
-S3 para frontend
-CloudWatch Logs
-```
-
-El costo esperado con bajo tráfico debería ser muy bajo.
-
-Estimación práctica:
+Cuando se implemente una feature:
 
 ```txt
-USD 0 a USD 5 / mes
-```
-
-Probablemente más cerca de USD 0 a USD 1 si hay pocos requests, pocos datos y sin servicios caros.
-
-Evitar por ahora:
-
-```txt
-NAT Gateway
-RDS siempre prendido
-OpenSearch
-Provisioned Concurrency
-ECS/Fargate continuo
-EC2 permanente
+1. Revisar access patterns antes de crear o modificar keys.
+2. No crear Scan.
+3. No inventar nuevos GSIs sin justificar el access pattern.
+4. Mantener tenantId en keys principales o índices.
+5. Usar GSI1 solo para public lookup / reverse lookup.
+6. Usar GSI2 para work queues operativas por branch/status.
+7. No guardar precios enviados por frontend como fuente confiable.
+8. Mantener el menú público como item materializado para MVP.
+9. Filtrar available=false en endpoints públicos.
+10. No mezclar lógica de negocio en adapters DynamoDB.
 ```
 
 ---
 
-## 16. Decisión final actual
+## 16. Resumen de decisiones actuales
 
 ```txt
-Crear ffresco-core-${Environment}
-Usar pk/sk genéricos
-Crear GSI1 desde el inicio
-Modelar tablePublicId para QR
-Modelar TableSession para cuenta abierta
-Unificar endpoint del menú público en GET /public/menu
-Calcular precios siempre en backend
-Preparar separación futura en restaurant/catalog/ordering/payment APIs
-```
+Core table:
+ffresco-core-${Environment}
 
+Main keys:
+pk
+sk
+
+Initial GSIs:
+GSI1_PUBLIC_LOOKUP
+GSI2_BRANCH_WORK_QUEUE
+
+MVP public menu:
+Single materialized item:
+PK = TENANT#<tenantId>#BRANCH#<branchId>
+SK = MENU#PUBLIC
+
+Public table lookup:
+GSI1PK = PUBLIC_TABLE#<tablePublicId>
+GSI1SK = TENANT#<tenantId>#BRANCH#<branchId>#TABLE#<tableId>
+
+Orders:
+PK = TENANT#<tenantId>#BRANCH#<branchId>#SESSION#<tableSessionId>
+SK = ORDER#<createdAt>#<orderId>
+
+Kitchen/work queues:
+GSI2PK = TENANT#<tenantId>#BRANCH#<branchId>#WORK#ORDER#STATUS#<status>
+GSI2SK = <createdAt>#<orderId>
+
+Outbox:
+No implementar al inicio salvo necesidad real.
+Cuando evolucione, preferir tabla separada:
+ffresco-outbox-${Environment}
+```
