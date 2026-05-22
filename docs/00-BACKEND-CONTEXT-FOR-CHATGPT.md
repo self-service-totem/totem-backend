@@ -53,7 +53,7 @@ Local direct mode does not simulate API Gateway payloads. SAM/API Gateway mode d
 ## Package standard
 
 ```text
-com.ffresco.pricelist
+com.ffresco.totem
 
   domain
     model
@@ -226,3 +226,4 @@ Function understands Spring Cloud Function.
 UseCase understands application action.
 Domain understands business rules.
 ```
+

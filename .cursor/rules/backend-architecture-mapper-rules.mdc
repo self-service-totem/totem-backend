@@ -1,0 +1,99 @@
+---
+description: Backend architecture rules for the Totem Price List Lambda
+globs:
+  - "src/main/java/**/*.java"
+  - "src/test/java/**/*.java"
+  - "openapi.yaml"
+  - "template.yaml"
+alwaysApply: true
+---
+
+# Backend Architecture Rules
+
+This project uses Java 21, Spring Cloud Function, AWS Lambda, API Gateway HTTP API v2, SAM, hexagonal architecture and JSON:API.
+
+## Non-negotiable rules
+
+- JSON:API must live only in `infrastructure.adapter.in.api`.
+- API Gateway event handling must live only in `infrastructure.adapter.in.api`.
+- Spring Cloud Function request/response adapters must live only in `infrastructure.adapter.in.function`.
+- Application layer must not depend on AWS, Lambda, API Gateway, Jackson, JSON:API or Spring Cloud Function.
+- Domain layer must not depend on Spring, AWS, Jackson, JSON:API or infrastructure.
+- Dependency direction must be: `infrastructure -> application -> domain`.
+- Do not put business logic in route handlers.
+- Do not put JSON:API classes in application or domain.
+- Do not use `DTO` suffix unless explicitly requested.
+
+
+## Mapping rules
+
+- Do not put conversion methods such as `from`, `toDomain`, `toResponse`, `toResource`, or `toEntity` inside domain objects, request records, response records, or persistence item records.
+- All translations between external models and domain/application models must be handled by explicit mapper classes owned by the adapter that needs the translation.
+- Inbound API adapter mappers must live in `infrastructure.adapter.in.api.<resource>` and may map function responses to JSON:API resources.
+- Inbound function adapter mappers must live in `infrastructure.adapter.in.function.<resource>` and may map function requests to application commands and domain results to function responses.
+- Outbound persistence adapter mappers must live in `infrastructure.adapter.out.<technology>` and may map database items to domain objects and domain objects to database items.
+- Domain objects must contain only domain state, invariants, and behavior. They must not know DTOs, JSON:API, DynamoDB, API Gateway, Lambda, Jackson, or mapper classes.
+- Request/response records should be simple data carriers. They should not contain static factory methods that convert from domain objects.
+
+## Endpoint creation flow
+
+For every new endpoint, create/update:
+
+1. `openapi.yaml`
+2. API route handler in `infrastructure.adapter.in.api.<resource>`
+3. JSON:API mapper and attributes in `infrastructure.adapter.in.api.<resource>`
+4. Function adapter in `infrastructure.adapter.in.function.<resource>`
+5. Application input port in `application.port.in.<resource>`
+6. Application service in `application.service.<resource>`
+7. Output port/adapters only if needed
+8. Config class or existing config bean registration
+9. Unit tests
+10. Route handler tests
+
+## JSON:API rules
+
+All HTTP responses must use:
+
+`Content-Type: application/vnd.api+json`
+
+Success response:
+
+```json
+{
+  "data": {
+    "type": "resource-type",
+    "id": "resource-id",
+    "attributes": {}
+  }
+}
+```
+
+Error response:
+
+```json
+{
+  "errors": [
+    {
+      "status": "400",
+      "title": "Bad Request",
+      "detail": "Error detail"
+    }
+  ]
+}
+```
+
+## OpenAPI-first rule
+
+`openapi.yaml` is the source of truth for HTTP paths, methods, parameters, request bodies and responses.
+
+Do not add API Gateway routes directly in SAM `Events` unless explicitly requested.
+
+The Lambda entrypoint must remain:
+
+```text
+SPRING_CLOUD_FUNCTION_DEFINITION=apiGatewayRouter
+```
+
+Do not add `HttpApi` `Events` in `template.yaml`.
+Add the path/method in `openapi.yaml`.
+The OpenAPI integration points to `PriceListFunction`.

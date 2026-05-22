@@ -57,3 +57,7 @@ sam sync --code --stack-name price-list-lambda-stack --profile ffresco
 sam sync --code --watch --stack-name price-list-lambda-stack --profile ffresco
 ```
 
+### Validar openapi
+```bash
+npx @redocly/cli lint openapi.yaml   
+```

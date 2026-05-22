@@ -1,0 +1,40 @@
+/price-lists/{priceListId}:
+  get:
+    tags:
+    - Price Lists
+    summary: Get a price list
+    description: Returns one price list by id using a JSON:API resource document.
+    operationId: getPriceList
+    x-amazon-apigateway-integration:
+      type: aws_proxy
+      httpMethod: POST
+      uri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+      payloadFormatVersion: '2.0'
+    parameters:
+    - name: priceListId
+      in: path
+      required: true
+      description: Price list identifier.
+      schema:
+        type: string
+      example: default
+    responses:
+      '200':
+        description: Price list found
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/PriceListDocument'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        $ref: '#/components/responses/Conflict'
+      '422':
+        $ref: '#/components/responses/UnprocessableEntity'
+      '429':
+        $ref: '#/components/responses/TooManyRequests'
+      '500':
+        $ref: '#/components/responses/InternalServerError'

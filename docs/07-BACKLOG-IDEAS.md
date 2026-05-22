@@ -8,7 +8,7 @@ Input example:
 
 ```yaml
 moduleName: price-list
-packageName: com.ffresco.pricelist
+packageName: com.ffresco.totem
 runtime: java21
 architecture: hexagonal
 apiStyle: json-api

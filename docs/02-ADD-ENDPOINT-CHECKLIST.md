@@ -78,3 +78,15 @@ POST /price-lists
 O-S-A-F-A-C-T
 OpenAPI -> SAM -> API adapter -> Function -> Application -> Config -> Test
 ```
+
+## Mapper checklist
+
+For every new endpoint, confirm that mappings are placed in the adapter layer:
+
+- Route/path/body to function request: API adapter or route handler.
+- Function request to application command: function adapter mapper.
+- Domain/application result to function response: function adapter mapper.
+- Function response to JSON:API resource: API adapter JSON:API mapper.
+- DynamoDB item/key to domain object: DynamoDB adapter mapper.
+
+Do not put conversion methods inside domain objects, request records, response records, or persistence item records.

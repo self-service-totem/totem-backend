@@ -16,6 +16,7 @@ Globals:
         MAIN_CLASS: com.ffresco.pricelist.PriceListLambdaApplication
         ENVIRONMENT: !Ref Environment
         RELEASE_VERSION: !Ref ReleaseVersion
+        TOTEM_CORE_TABLE_NAME: !Ref TotemCoreTable
 
 Parameters:
   Environment:
@@ -35,6 +36,11 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref Environment
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: openapi.yaml
 
   PriceListFunction:
     Type: AWS::Serverless::Function
@@ -46,20 +52,57 @@ Resources:
       Description: Price list Lambda using Spring Cloud Function
       Policies:
         - AWSLambdaBasicExecutionRole
-      Events:
-        GetPriceList:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref PriceListHttpApi
-            Path: /price-lists/{priceListId}
-            Method: GET
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TotemCoreTable
+      Tags:
+        Project: totem
+        Environment: !Ref Environment
 
-        Health:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref PriceListHttpApi
-            Path: /health
-            Method: GET
+  PriceListFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PriceListFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PriceListHttpApi}/*/*/*
+
+  TotemCoreTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub totem-core-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: gsi1pk
+          AttributeType: S
+        - AttributeName: gsi1sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: gsi1pk
+              KeyType: HASH
+            - AttributeName: gsi1sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: totem
+        - Key: Environment
+          Value: !Ref Environment
 
 Outputs:
   PriceListFunctionName:
@@ -72,8 +115,20 @@ Outputs:
 
   PriceListApiUrl:
     Description: API Gateway HTTP API base URL
-    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+    Value: !Sub https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
 
   GetPriceListUrl:
     Description: Example price list endpoint
-    Value: !Sub "https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/price-lists/default"
+    Value: !Sub https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/price-lists/default
+
+  TotemCoreTableName:
+    Description: DynamoDB table name
+    Value: !Ref TotemCoreTable
+
+  TotemCoreTableArn:
+    Description: DynamoDB table ARN
+    Value: !GetAtt TotemCoreTable.Arn
+
+  GetCatalogVersionUrl:
+    Description: Example catalog version endpoint
+    Value: !Sub https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/branches/branch-001/catalog/version

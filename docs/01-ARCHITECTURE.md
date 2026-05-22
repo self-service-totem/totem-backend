@@ -58,7 +58,7 @@ AWS/API Gateway:
 ## Package map
 
 ```text
-com.ffresco.pricelist
+com.ffresco.totem
 
   domain
     model
@@ -118,3 +118,13 @@ template.yaml = infrastructure and Lambda deployment
 ```
 
 `template.yaml` should reference `openapi.yaml` through `DefinitionUri` and expose the Lambda through API Gateway events.
+
+## Mapper ownership rule
+
+Translations between transport/persistence objects and application/domain objects must be handled by mapper classes that belong to the adapter performing the translation.
+
+- API Gateway and JSON:API mappings belong to `infrastructure.adapter.in.api.<resource>`.
+- Spring Cloud Function request/response mappings belong to `infrastructure.adapter.in.function.<resource>`.
+- DynamoDB item/key mappings belong to `infrastructure.adapter.out.dynamodb`.
+- Domain objects must not contain mapping methods or know DTOs, JSON:API, DynamoDB, API Gateway, Lambda, Jackson, or Spring Cloud Function.
+- Request/response records should remain simple data carriers and should not contain static conversion methods such as `from(domain)`.
