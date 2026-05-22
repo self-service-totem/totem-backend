@@ -5,11 +5,11 @@ import com.ffresco.totem.catalog.application.port.in.GetCatalogVersionUseCase;
 import com.ffresco.totem.catalog.application.port.out.LoadCatalogVersionPort;
 import com.ffresco.totem.catalog.domain.model.CatalogVersion;
 
-public class GetCatalogVersionService implements GetCatalogVersionUseCase {
+public class GetCatalogVersionUseCaseImpl implements GetCatalogVersionUseCase {
 
     private final LoadCatalogVersionPort loadCatalogVersionPort;
 
-    public GetCatalogVersionService(LoadCatalogVersionPort loadCatalogVersionPort) {
+    public GetCatalogVersionUseCaseImpl(LoadCatalogVersionPort loadCatalogVersionPort) {
         this.loadCatalogVersionPort = loadCatalogVersionPort;
     }
 

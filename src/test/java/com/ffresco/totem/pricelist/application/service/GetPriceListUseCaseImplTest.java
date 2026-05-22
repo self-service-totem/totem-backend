@@ -2,7 +2,6 @@ package com.ffresco.totem.pricelist.application.service;
 
 import com.ffresco.totem.pricelist.application.port.in.GetPriceListCommand;
 import com.ffresco.totem.pricelist.application.port.out.LoadProductsPort;
-import com.ffresco.totem.pricelist.application.service.GetPriceListService;
 import com.ffresco.totem.common.domain.enums.Currency;
 import com.ffresco.totem.common.domain.model.Money;
 import com.ffresco.totem.pricelist.domain.model.Product;
@@ -12,14 +11,14 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class GetPriceListServiceTest {
+class GetPriceListUseCaseImplTest {
 
     @Test
     void shouldReturnPriceListWithProducts() {
         LoadProductsPort loadProductsPort = priceListId -> List.of(
                 new Product("P-001", "Test Product", new Money(new BigDecimal("10.00"), Currency.USD))
         );
-        var service = new GetPriceListService(loadProductsPort);
+        var service = new GetPriceListUseCaseImpl(loadProductsPort);
 
         var result = service.execute(new GetPriceListCommand("default"));
 

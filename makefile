@@ -44,6 +44,22 @@ dynamo-seed-catalog-version-aws-stack-local:
 	  --item '{"pk":{"S":"BRANCH#branch-001"},"sk":{"S":"CATALOG#VERSION"},"branchId":{"S":"branch-001"},"catalogVersion":{"S":"2026-05-20T12:00:00Z"},"priceListId":{"S":"default"}}' \
 	  --profile ffresco
 
+# Public table item (used by the GSI1 lookup)
+dynamo-seed-table-item-version-aws-stack-local:
+	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
+	aws dynamodb put-item \
+	--endpoint-url http://localhost:8000 --region sa-east-1 \
+	--table-name totem-core-local \
+	--item '{"pk":{"S":"TENANT#tenant-001#PUBLIC_TABLE#tbl-public-001"},		"sk":{"S":"METADATA"},		"gsi1pk":{"S":"PUBLIC_TABLE#tbl-public-001"},		"gsi1sk":{"S":"TENANT#tenant-001#BRANCH#branch-001"},		"tenantId":{"S":"tenant-001"},		"branchId":{"S":"branch-001"},		"tableId":{"S":"tbl-001"},		"tablePublicId":{"S":"tbl-public-001"},		"status":{"S":"ACTIVE"}	}'
+
+# Public menu materialized item
+dynamo-seed-menu-materialized-version-aws-stack-local:
+	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
+	aws dynamodb put-item \
+	--endpoint-url http://localhost:8000 --region sa-east-1 \
+	--table-name totem-core-local \
+	--item '{"pk":{"S":"TENANT#tenant-001#BRANCH#branch-001"},"sk":{"S":"MENU#PUBLIC"},"tenantId":{"S":"tenant-001"},"branchId":{"S":"branch-001"},"currency":{"S":"BRL"},"categories":{"L":[	{"M":{		"id":{"S":"cat-burgers"},		"name":{"S":"Burgers"},	"products":{"L":[	{"M":{		"id":{"S":"prd-burger"},		"name":{"S":"Cheeseburger"},		"description":{"S":"Beef patty."},		"price":{"S":"12.50"},				"available":{"BOOL":true}			}}			]}		}}		]}	}'
+
 openapi-bundle:
 	python3 scripts/bundle-openapi.py openapi-src/openapi-root.yaml openapi.yaml
 

@@ -137,6 +137,85 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /public/menu:
+    get:
+      tags:
+      - Public Menu
+      summary: Get the public menu for a table
+      description: Returns the available menu (categories with available products
+        only) for the branch associated with the given public table id. Used by customers
+        who scan a QR code at a table.
+      operationId: getPublicMenu
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+        payloadFormatVersion: '2.0'
+      parameters:
+      - name: tableId
+        in: query
+        required: true
+        description: Public table identifier (the value encoded in the QR code).
+        schema:
+          type: string
+        example: tbl-public-001
+      responses:
+        '200':
+          description: Public menu found
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/PublicMenuDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/menu/products/{productId}:
+    get:
+      tags:
+      - Public Menu
+      summary: Get a public product detail
+      description: Returns one product visible in the public menu for the table associated
+        with the given public table id. Returns 404 if the product is not part of
+        the available menu for that table.
+      operationId: getPublicProductDetail
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+        payloadFormatVersion: '2.0'
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        description: Product identifier.
+        schema:
+          type: string
+        example: prd-001
+      - name: tableId
+        in: query
+        required: true
+        description: Public table identifier (the value encoded in the QR code).
+        schema:
+          type: string
+        example: tbl-public-001
+      responses:
+        '200':
+          description: Public product found
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: '#/components/schemas/PublicProductDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
   schemas:
     HealthDocument:
@@ -188,6 +267,10 @@ components:
         status:
           type: string
           example: '400'
+        code:
+          type: string
+          description: Application-specific error code for clients to branch on.
+          example: PUBLIC_TABLE_NOT_FOUND
         title:
           type: string
           example: Bad Request
@@ -289,6 +372,163 @@ components:
         priceListId:
           type: string
           example: default
+    PublicMoneyAttributes:
+      type: object
+      required:
+      - amount
+      - currency
+      properties:
+        amount:
+          type: string
+          description: Decimal amount serialized as a string with two fractional digits.
+          example: '12.50'
+        currency:
+          type: string
+          example: BRL
+    PublicMenuProductAttributes:
+      type: object
+      required:
+      - id
+      - name
+      - price
+      - available
+      properties:
+        id:
+          type: string
+          example: prd-001
+        name:
+          type: string
+          example: Cheeseburger
+        description:
+          type: string
+          nullable: true
+          example: Beef patty, cheddar, brioche bun.
+        price:
+          $ref: '#/components/schemas/PublicMoneyAttributes'
+        available:
+          type: boolean
+          example: true
+    PublicMenuCategoryAttributes:
+      type: object
+      required:
+      - id
+      - name
+      - products
+      properties:
+        id:
+          type: string
+          example: cat-burgers
+        name:
+          type: string
+          example: Burgers
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicMenuProductAttributes'
+    PublicMenuAttributes:
+      type: object
+      required:
+      - branchId
+      - tableId
+      - currency
+      - categories
+      properties:
+        branchId:
+          type: string
+          example: branch-001
+        tableId:
+          type: string
+          example: tbl-001
+        currency:
+          type: string
+          example: BRL
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicMenuCategoryAttributes'
+    PublicMenuResource:
+      type: object
+      required:
+      - type
+      - id
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - public-menu
+          example: public-menu
+        id:
+          type: string
+          example: branch-001-menu
+        attributes:
+          $ref: '#/components/schemas/PublicMenuAttributes'
+    PublicMenuDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/PublicMenuResource'
+    PublicProductAttributes:
+      type: object
+      required:
+      - branchId
+      - tableId
+      - name
+      - price
+      - available
+      - categoryId
+      - categoryName
+      properties:
+        branchId:
+          type: string
+          example: branch-001
+        tableId:
+          type: string
+          example: tbl-001
+        name:
+          type: string
+          example: Cheeseburger
+        description:
+          type: string
+          nullable: true
+          example: Beef patty, cheddar, brioche bun.
+        price:
+          $ref: '#/components/schemas/PublicMoneyAttributes'
+        available:
+          type: boolean
+          example: true
+        categoryId:
+          type: string
+          example: cat-burgers
+        categoryName:
+          type: string
+          example: Burgers
+    PublicProductResource:
+      type: object
+      required:
+      - type
+      - id
+      - attributes
+      properties:
+        type:
+          type: string
+          enum:
+          - public-product
+          example: public-product
+        id:
+          type: string
+          example: prd-001
+        attributes:
+          $ref: '#/components/schemas/PublicProductAttributes'
+    PublicProductDocument:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/PublicProductResource'
   responses:
     BadRequest:
       description: Invalid request syntax, path parameter, query parameter, or body.

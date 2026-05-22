@@ -6,6 +6,27 @@ Use this file as the first context when working on this backend project.
 
 Backend base for a multi-tenant digital menu / ordering system, implemented as a Java 21 AWS Lambda using Spring Cloud Function, API Gateway HTTP API v2, SAM, hexagonal architecture and JSON:API for HTTP input/output.
 
+# Prompt Base — Chat Backend
+
+Usaremos este chat para implementación backend.
+
+## Rol esperado
+Actúa como senior backend Java + AWS Lambda engineer.
+
+## Proyecto
+Kiosk de autoservicio con backend serverless.
+
+## Stack backend
+- Java 21
+- Maven
+- AWS Lambda
+- API Gateway
+- DynamoDB
+- SQS / SNS más adelante
+- CloudFormation
+- CloudWatch
+
+
 ## Non-negotiable architecture rules
 
 ```text

@@ -2,13 +2,15 @@ package com.ffresco.totem.catalog.infrastructure.config;
 
 import com.ffresco.totem.catalog.application.port.in.GetCatalogVersionUseCase;
 import com.ffresco.totem.catalog.application.port.out.LoadCatalogVersionPort;
-import com.ffresco.totem.catalog.application.service.GetCatalogVersionService;
+import com.ffresco.totem.catalog.application.service.GetCatalogVersionUseCaseImpl;
 import com.ffresco.totem.common.infrastructure.adapter.in.api.ApiGatewayRouteHandler;
+import com.ffresco.totem.common.infrastructure.adapter.in.api.JsonApiDocument;
 import com.ffresco.totem.common.infrastructure.adapter.in.api.JsonApiResponseFactory;
+import com.ffresco.totem.catalog.infrastructure.adapter.in.api.CatalogVersionAttributes;
+import com.ffresco.totem.catalog.infrastructure.adapter.in.api.CatalogVersionJsonApiMapper;
 import com.ffresco.totem.catalog.infrastructure.adapter.in.api.GetCatalogVersionRouteHandler;
 import com.ffresco.totem.catalog.infrastructure.adapter.in.function.GetCatalogVersionFunction;
 import com.ffresco.totem.catalog.infrastructure.adapter.in.function.GetCatalogVersionRequest;
-import com.ffresco.totem.catalog.infrastructure.adapter.in.function.GetCatalogVersionResponse;
 import com.ffresco.totem.catalog.infrastructure.adapter.out.dynamodb.DynamoDbCatalogVersionAdapter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -31,7 +33,7 @@ public class CatalogConfig {
 
     @Bean
     public GetCatalogVersionUseCase getCatalogVersionUseCase(LoadCatalogVersionPort loadCatalogVersionPort) {
-        return new GetCatalogVersionService(loadCatalogVersionPort);
+        return new GetCatalogVersionUseCaseImpl(loadCatalogVersionPort);
     }
 
     @Bean
@@ -48,15 +50,18 @@ public class CatalogConfig {
     }
 
     /**
-     * Local/direct function.
+     * Local/direct function for spring-cloud-function-web (POST /catalogVersion).
      *
-     * Useful when running locally with spring-cloud-function-web:
-     * POST /catalogVersion with a simple JSON body.
+     * <p>Returns a {@link JsonApiDocument} so the local response shape matches
+     * the Lambda response shape — both transports MUST use the same JSON:API
+     * envelope.</p>
      */
     @Bean("catalogVersion")
-    public Function<GetCatalogVersionRequest, GetCatalogVersionResponse> catalogVersion(
+    public Function<GetCatalogVersionRequest, JsonApiDocument<CatalogVersionAttributes>> catalogVersion(
             GetCatalogVersionFunction getCatalogVersionFunction
     ) {
-        return getCatalogVersionFunction;
+        return request -> new JsonApiDocument<>(
+                CatalogVersionJsonApiMapper.toResource(getCatalogVersionFunction.apply(request))
+        );
     }
 }

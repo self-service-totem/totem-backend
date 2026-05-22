@@ -52,13 +52,13 @@ Future domains:
 
 ### Domain package per domain
 ```txt
-com.ffresco.publicapi.menu
-com.ffresco.publicapi.order
-com.ffresco.operations.orders
-com.ffresco.admin.bootstrap
-com.ffresco.catalog.product
-com.ffresco.pricing.pricelist
-com.ffresco.stock.adjustment
-com.ffresco.payments.intent
+com.ffresco.totem.publicapi.menu
+com.ffresco.totem.publicapi.order
+com.ffresco.totem.operations.orders
+com.ffresco.totem.admin.bootstrap
+com.ffresco.totem.catalog.product
+com.ffresco.totem.pricing.pricelist
+com.ffresco.totem.stock.adjustment
+com.ffresco.totem.payments.intent
 ```
 

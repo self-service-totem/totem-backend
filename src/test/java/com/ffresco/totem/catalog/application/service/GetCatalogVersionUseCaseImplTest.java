@@ -10,7 +10,7 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class GetCatalogVersionServiceTest {
+class GetCatalogVersionUseCaseImplTest {
 
     @Test
     void shouldReturnCatalogVersionForBranch() {
@@ -20,7 +20,7 @@ class GetCatalogVersionServiceTest {
                 version,
                 "default"
         );
-        var service = new GetCatalogVersionService(loadCatalogVersionPort);
+        var service = new GetCatalogVersionUseCaseImpl(loadCatalogVersionPort);
 
         var result = service.execute(new GetCatalogVersionCommand("branch-001"));
 
@@ -36,7 +36,7 @@ class GetCatalogVersionServiceTest {
                 Instant.parse("2026-05-20T12:00:00Z"),
                 "default"
         );
-        var service = new GetCatalogVersionService(loadCatalogVersionPort);
+        var service = new GetCatalogVersionUseCaseImpl(loadCatalogVersionPort);
 
         assertThatThrownBy(() -> service.execute(new GetCatalogVersionCommand(" ")))
                 .isInstanceOf(IllegalArgumentException.class)
