@@ -1,48 +1,47 @@
 openapi: 3.0.3
-
 info:
-  title: Price List API
+  title: Totem Core API
   version: 0.1.0
   license:
     name: Proprietary
     url: http://tobe.done.com
-  description: |
-    JSON:API-first contract for the Price List Lambda.
-    This file is the API contract source of truth. AWS SAM references it from template.yaml.
+  description: 'JSON:API-first contract for the Totem Core Lambda.
 
+    This generated file is the API contract used by AWS SAM.
+
+    Source fragments live in openapi-src/.
+
+    '
 servers:
-  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
-    description: AWS API Gateway HTTP API
-    variables:
-      apiId:
-        default: api-id
-      region:
-        default: sa-east-1
-      stage:
-        default: dev
-
+- url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+  description: AWS API Gateway HTTP API
+  variables:
+    apiId:
+      default: api-id
+    region:
+      default: sa-east-1
+    stage:
+      default: dev
 security: []
-
 x-amazon-apigateway-cors:
   allowOrigins:
-    - '*'
+  - '*'
   allowMethods:
-    - GET
-    - POST
-    - PUT
-    - PATCH
-    - DELETE
-    - OPTIONS
+  - GET
+  - POST
+  - PUT
+  - PATCH
+  - DELETE
+  - OPTIONS
   allowHeaders:
-    - Content-Type
-    - Authorization
-    - Accept
-
+  - Content-Type
+  - Authorization
+  - Accept
 paths:
   /health:
     get:
       tags:
-        - Health
+      - Health
       summary: Health check
       description: Returns the current status of the Lambda API.
       operationId: getHealth
@@ -63,11 +62,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /price-lists/{priceListId}:
     get:
       tags:
-        - Price Lists
+      - Price Lists
       summary: Get a price list
       description: Returns one price list by id using a JSON:API resource document.
       operationId: getPriceList
@@ -78,13 +76,13 @@ paths:
           Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
         payloadFormatVersion: '2.0'
       parameters:
-        - name: priceListId
-          in: path
-          required: true
-          description: Price list identifier.
-          schema:
-            type: string
-          example: default
+      - name: priceListId
+        in: path
+        required: true
+        description: Price list identifier.
+        schema:
+          type: string
+        example: default
       responses:
         '200':
           description: Price list found
@@ -104,13 +102,13 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /branches/{branchId}/catalog/version:
     get:
       tags:
-        - Catalog
+      - Catalog
       summary: Get catalog version for a branch
-      description: Returns the current catalog version for a branch. A kiosk can use this endpoint to know if it must refresh its local cached catalog.
+      description: Returns the current catalog version for a branch. A kiosk can use
+        this endpoint to know if it must refresh its local cached catalog.
       operationId: getCatalogVersion
       x-amazon-apigateway-integration:
         type: aws_proxy
@@ -119,13 +117,13 @@ paths:
           Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
         payloadFormatVersion: '2.0'
       parameters:
-        - name: branchId
-          in: path
-          required: true
-          description: Branch identifier.
-          schema:
-            type: string
-          example: branch-001
+      - name: branchId
+        in: path
+        required: true
+        description: Branch identifier.
+        schema:
+          type: string
+        example: branch-001
       responses:
         '200':
           description: Catalog version found
@@ -139,23 +137,21 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
 components:
   schemas:
     HealthDocument:
       type: object
       required:
-        - data
+      - data
       properties:
         data:
           $ref: '#/components/schemas/HealthResource'
-
     HealthResource:
       type: object
       required:
-        - type
-        - id
-        - attributes
+      - type
+      - id
+      - attributes
       properties:
         type:
           type: string
@@ -165,59 +161,79 @@ components:
           example: current
         attributes:
           $ref: '#/components/schemas/HealthAttributes'
-
     HealthAttributes:
       type: object
       required:
-        - status
+      - status
       properties:
         status:
           type: string
           example: ok
-
+    ErrorDocument:
+      type: object
+      required:
+      - errors
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsonApiError'
+    JsonApiError:
+      type: object
+      required:
+      - status
+      - title
+      - detail
+      properties:
+        status:
+          type: string
+          example: '400'
+        title:
+          type: string
+          example: Bad Request
+        detail:
+          type: string
+          example: Path parameter 'priceListId' is required
     PriceListDocument:
       type: object
       required:
-        - data
+      - data
       properties:
         data:
           $ref: '#/components/schemas/PriceListResource'
-
     PriceListResource:
       type: object
       required:
-        - type
-        - id
-        - attributes
+      - type
+      - id
+      - attributes
       properties:
         type:
           type: string
           enum:
-            - price-lists
+          - price-lists
           example: price-lists
         id:
           type: string
           example: default
         attributes:
           $ref: '#/components/schemas/PriceListAttributes'
-
     PriceListAttributes:
       type: object
       required:
-        - products
+      - products
       properties:
         products:
           type: array
           items:
             $ref: '#/components/schemas/PriceListProductAttributes'
-
     PriceListProductAttributes:
       type: object
       required:
-        - id
-        - name
-        - price
-        - currency
+      - id
+      - name
+      - price
+      - currency
       properties:
         id:
           type: string
@@ -232,40 +248,36 @@ components:
         currency:
           type: string
           example: USD
-
-
     CatalogVersionDocument:
       type: object
       required:
-        - data
+      - data
       properties:
         data:
           $ref: '#/components/schemas/CatalogVersionResource'
-
     CatalogVersionResource:
       type: object
       required:
-        - type
-        - id
-        - attributes
+      - type
+      - id
+      - attributes
       properties:
         type:
           type: string
           enum:
-            - catalog-versions
+          - catalog-versions
           example: catalog-versions
         id:
           type: string
           example: branch-001
         attributes:
           $ref: '#/components/schemas/CatalogVersionAttributes'
-
     CatalogVersionAttributes:
       type: object
       required:
-        - branchId
-        - catalogVersion
-        - priceListId
+      - branchId
+      - catalogVersion
+      - priceListId
       properties:
         branchId:
           type: string
@@ -277,34 +289,6 @@ components:
         priceListId:
           type: string
           example: default
-
-    ErrorDocument:
-      type: object
-      required:
-        - errors
-      properties:
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/JsonApiError'
-
-    JsonApiError:
-      type: object
-      required:
-        - status
-        - title
-        - detail
-      properties:
-        status:
-          type: string
-          example: '400'
-        title:
-          type: string
-          example: Bad Request
-        detail:
-          type: string
-          example: Path parameter 'priceListId' is required
-
   responses:
     BadRequest:
       description: Invalid request syntax, path parameter, query parameter, or body.
@@ -312,35 +296,30 @@ components:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
-
     NotFound:
       description: Resource not found.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
-
     Conflict:
       description: Resource conflict.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
-
     UnprocessableEntity:
       description: Request is syntactically valid but violates a business rule.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
-
     TooManyRequests:
       description: Rate limit exceeded.
       content:
         application/vnd.api+json:
           schema:
             $ref: '#/components/schemas/ErrorDocument'
-
     InternalServerError:
       description: Unexpected server error.
       content:

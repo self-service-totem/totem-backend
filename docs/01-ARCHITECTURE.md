@@ -58,7 +58,7 @@ AWS/API Gateway:
 ## Package map
 
 ```text
-com.ffresco.pricelist
+com.ffresco.totem
 
   domain
     model

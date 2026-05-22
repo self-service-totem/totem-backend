@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Totem Core API
+  version: 0.1.0
+  license:
+    name: Proprietary
+    url: http://tobe.done.com
+  description: 'JSON:API-first contract for the Totem Core Lambda.
+
+    This generated file is the API contract used by AWS SAM.
+
+    Source fragments live in openapi-src/.
+
+    '
+servers:
+- url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+  description: AWS API Gateway HTTP API
+  variables:
+    apiId:
+      default: api-id
+    region:
+      default: sa-east-1
+    stage:
+      default: dev
+security: []
+x-amazon-apigateway-cors:
+  allowOrigins:
+  - '*'
+  allowMethods:
+  - GET
+  - POST
+  - PUT
+  - PATCH
+  - DELETE
+  - OPTIONS
+  allowHeaders:
+  - Content-Type
+  - Authorization
+  - Accept
+paths: {}
+components:
+  schemas: {}
+  responses: {}
+x-openapi-source:
+  paths:
+  - paths/health.yaml
+  - paths/pricelist.yaml
+  - paths/catalog.yaml
+  schemas:
+  - components/schemas/common.yaml
+  - components/schemas/pricelist.yaml
+  - components/schemas/catalog.yaml
+  responses:
+  - components/responses/common.yaml
+  bundleOutput: ../openapi.yaml
+  samNote: AWS SAM reads openapi.yaml. Edit fragments in openapi-src/ and run scripts/bundle-openapi.py.

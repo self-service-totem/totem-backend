@@ -43,3 +43,12 @@ dynamo-seed-catalog-version-aws-stack-local:
 	  --table-name totem-core-local \
 	  --item '{"pk":{"S":"BRANCH#branch-001"},"sk":{"S":"CATALOG#VERSION"},"branchId":{"S":"branch-001"},"catalogVersion":{"S":"2026-05-20T12:00:00Z"},"priceListId":{"S":"default"}}' \
 	  --profile ffresco
+
+openapi-bundle:
+	python3 scripts/bundle-openapi.py openapi-src/openapi-root.yaml openapi.yaml
+
+package: openapi-bundle
+	mvn clean package
+
+sam-build: openapi-bundle
+	sam build

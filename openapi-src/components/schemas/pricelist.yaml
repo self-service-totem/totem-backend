@@ -1,0 +1,54 @@
+PriceListDocument:
+  type: object
+  required:
+  - data
+  properties:
+    data:
+      $ref: '#/components/schemas/PriceListResource'
+PriceListResource:
+  type: object
+  required:
+  - type
+  - id
+  - attributes
+  properties:
+    type:
+      type: string
+      enum:
+      - price-lists
+      example: price-lists
+    id:
+      type: string
+      example: default
+    attributes:
+      $ref: '#/components/schemas/PriceListAttributes'
+PriceListAttributes:
+  type: object
+  required:
+  - products
+  properties:
+    products:
+      type: array
+      items:
+        $ref: '#/components/schemas/PriceListProductAttributes'
+PriceListProductAttributes:
+  type: object
+  required:
+  - id
+  - name
+  - price
+  - currency
+  properties:
+    id:
+      type: string
+      example: P-001
+    name:
+      type: string
+      example: Café Especial 500g
+    price:
+      type: number
+      format: double
+      example: 12.9
+    currency:
+      type: string
+      example: USD
