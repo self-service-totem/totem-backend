@@ -66,5 +66,35 @@ openapi-bundle:
 package: openapi-bundle
 	mvn clean package
 
+##### Seccion dedicada a git #####
+
 sam-build: openapi-bundle
 	sam build
+
+# Check auth status using the ffresco GH CLI config profile.
+gh-ffresco-status:
+	GH_CONFIG_DIR=$$HOME/.config/gh-ffresco gh auth status
+
+# Create a PR using variables passed at execution time.
+# Usage:
+# make gh-pr-create HEAD=feature/TOTEM-1-public-menu BODY_FILE=docs/tickets/generated/TOTEM-1-public-menu.md TITLE="TOTEM-1 Public Menu"
+# Optional:
+# BASE=develop GH_CONFIG_DIR_PATH=$$HOME/.config/gh-ffresco
+
+gh-pr-create:
+	@if [ -z "$(HEAD)" ]; then echo "Missing HEAD. Usage: make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop]"; exit 1; fi
+	@if [ -z "$(BODY_FILE)" ]; then echo "Missing BODY_FILE. Usage: make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop]"; exit 1; fi
+	@if [ ! -f "$(BODY_FILE)" ]; then echo "BODY_FILE not found: $(BODY_FILE)"; exit 1; fi
+	GH_CONFIG_DIR=$${GH_CONFIG_DIR_PATH:-$$HOME/.config/gh-ffresco} gh pr create \
+		--base $(if $(BASE),$(BASE),develop) \
+		--head $(HEAD) \
+		$(if $(TITLE),--title "$(TITLE)",) \
+		--body-file $(BODY_FILE)
+
+# Help: prints examples to invoke gh-pr-create.
+gh-pr-create-help:
+	@echo "Usage:"
+	@echo "  make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop] [GH_CONFIG_DIR_PATH=<path>]"
+	@echo ""
+	@echo "Example:"
+	@echo "  make gh-pr-create HEAD=feature/TOTEM-1-public-menu BODY_FILE=docs/tickets/generated/TOTEM-1-public-menu.md TITLE=\"TOTEM-1 Public Menu\""
