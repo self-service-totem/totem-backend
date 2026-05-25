@@ -136,17 +136,10 @@ Application and domain do not know JSON:API, API Gateway, Lambda or Spring Cloud
 - Maven 3.9+
 - AWS CLI configured
 - SAM CLI installed
-- Python 3 with `PyYAML` (for OpenAPI bundling)
 
 Optional:
 
 - Docker, only if you want to use `sam local`.
-
-Install Python dependencies for scripts:
-
-```bash
-python3 -m pip install -r scripts/requirements.txt
-```
 
 ## Run unit tests
 

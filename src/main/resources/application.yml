@@ -5,15 +5,3 @@ spring:
       # SAM/AWS overrides this value with SPRING_CLOUD_FUNCTION_DEFINITION=apiGatewayRouter.
       definition: health
       #definition: getHealthRouteHandler
-  application:
-    name: totem-backend-price-list
-  main:
-    web-application-type: none
-
-app:
-  aws:
-    region: ${AWS_REGION:sa-east-1}
-    dynamodb:
-      table-name: ${TOTEM_CORE_TABLE_NAME:totem-core-dev}
-      endpoint: ${DYNAMODB_ENDPOINT:}
-

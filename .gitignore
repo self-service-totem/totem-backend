@@ -9,4 +9,3 @@ target/
 # OS
 .DS_Store
 __MACOSX/
-/.dynamodb-local/
