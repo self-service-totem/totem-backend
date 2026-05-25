@@ -542,6 +542,7 @@ Tasks:
 
 ---
 
+
 # Épica 6 — Stock API
 
 **Objetivo:** stock por sucursal, movimientos, reservas y alertas.
@@ -761,6 +762,129 @@ Tasks:
 - Crear helper para ejecutar router/function
 - Documentar estrategia
 
+# Épica 7 - Notifications
+
+## Objetivo
+
+Implementar un módulo de notificaciones desacoplado que permita generar, registrar, enviar y reintentar comunicaciones internas o externas originadas por eventos del sistema.
+
+Este módulo debe soportar inicialmente notificaciones internas para cocina y quedar preparado para futuros canales como WhatsApp, Email, SMS, Push y WebSocket.
+
+---
+
+## Contexto arquitectónico
+
+Las notificaciones no deben estar acopladas directamente a los dominios de negocio.
+
+Ejemplo:
+
+- `OrderCreated`
+- `PaymentApproved`
+- `KitchenTicketCreated`
+- `OrderReady`
+
+Estos eventos pueden generar una o más notificaciones.
+
+Regla:
+
+```text
+Domain Event -> Notification -> Sender Adapter
+```
+## Notification Module
+
+### Notification
+
+Representa una comunicación pendiente, enviada o fallida hacia un canal externo o interno.
+
+Campos:
+- id
+- tenantId
+- branchId nullable
+- sourceEventId
+- sourceEventType
+- channel
+- recipientType
+- recipient
+- templateCode
+- payload
+- status
+- attemptCount
+- lastError
+- scheduledAt
+- sentAt
+- createdAt
+- updatedAt
+
+Canales:
+- KITCHEN_SCREEN
+- WHATSAPP
+- EMAIL
+- SMS
+- PUSH
+- WEBSOCKET
+- INTERNAL_EVENT
+
+Estados:
+- PENDING
+- PROCESSING
+- SENT
+- FAILED
+- CANCELED
+
+-Tener TTL para borrar notificaciones viejas
+
+
+
+### NotificationAttempt
+
+Representa cada intento de envío de una notificación.
+
+Campos:
+- id
+- notificationId
+- provider
+- status
+- requestPayload
+- responsePayload
+- errorMessage
+- createdAt
+
+
+**Paquetes**
+
+notification
+  domain
+    Notification
+    NotificationChannel
+    NotificationStatus
+    NotificationAttempt
+    NotificationRecipientType
+
+  application
+    CreateNotificationUseCase
+    SendNotificationUseCase
+    RetryFailedNotificationUseCase
+    ProcessNotificationEventUseCase
+
+  infrastructure
+    DynamoNotificationRepository
+    WhatsAppNotificationSender
+    WebSocketNotificationSender
+    EmailNotificationSender
+    SqsNotificationQueuePublisher
+    SqsNotificationQueueConsumer
+
+**Criterios de aceptación**
+	Se puede crear una notificación a partir de un evento de dominio.
+	La notificación queda registrada en DynamoDB con status PENDING.
+	La notificación tiene tenantId, branchId, channel, recipient, templateCode y payload.
+	La notificación puede ser enviada por un sender adapter.
+	Si el envío es exitoso, cambia a SENT y guarda sentAt.
+	Si el envío falla, incrementa attemptCount, guarda lastError y queda como FAILED o vuelve a reintento según política.
+	Las notificaciones antiguas tienen expiresAt para TTL.
+	No se hacen scans globales para procesar notificaciones pendientes.
+	El procesamiento asíncrono usa SQS y DLQ.
+	El diseño permite agregar WhatsApp, Email, WebSocket o Push sin modificar los dominios de negocio.
 ---
 
 # Orden recomendado de trabajo

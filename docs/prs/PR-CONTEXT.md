@@ -60,5 +60,6 @@ com.ffresco.totem.catalog.product
 com.ffresco.totem.pricing.pricelist
 com.ffresco.totem.stock.adjustment
 com.ffresco.totem.payments.intent
+com.ffresco.totem.notifications
 ```
 
