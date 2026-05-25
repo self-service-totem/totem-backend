@@ -41,3 +41,4 @@ All notable changes to this project are documented in this file.
 - AWS deployment uses:
   - `Handler`: `org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest`
   - `SPRING_CLOUD_FUNCTION_DEFINITION`: `apiGatewayRouter`
+
