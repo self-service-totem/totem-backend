@@ -1,0 +1,34 @@
+---
+description: Backend standard rules for Totem SaaS
+globs:
+  - "src/main/java/**/*.java"
+  - "src/test/java/**/*.java"
+  - "openapi-src/**/*.yaml"
+  - "template.yaml"
+alwaysApply: true
+---
+
+# Backend Standard Rules
+
+This project follows the canonical docs:
+
+- `docs/01-architecture-standard.md`
+- `docs/02-testing-strategy.md`
+- `docs/03-data-model.md`
+- `docs/04-api-contract-standard.md`
+
+## Non-negotiable rules
+
+- Dependency direction: `infrastructure -> application -> domain`.
+- Domain must not depend on Spring, AWS, Jackson, DynamoDB, API Gateway, Lambda, JSON:API or infrastructure.
+- Application must not depend on AWS, Lambda, API Gateway, Jackson, JSON:API or Spring Cloud Function.
+- JSON:API and API Gateway event handling live only in `infrastructure.adapter.in.api`.
+- Spring Cloud Function request/response records live only in `infrastructure.adapter.in.function`.
+- Business logic must not live in route handlers, mappers, adapters, repositories or config classes.
+- Use explicit mapper classes. Do not put `from`, `toDomain`, `toResponse`, `toEntity`, `toResource` conversion methods on domain objects or records.
+- Do not use `DTO` suffix unless explicitly requested.
+- Every API response must follow JSON:API.
+- Edit OpenAPI source fragments, not generated `openapi.yaml` directly.
+- DynamoDB access must go through output ports and adapters.
+- No critical access pattern should require DynamoDB `Scan`.
+- Tests should protect behavior: unit, acceptance-style and minimal integration/contract/smoke.
