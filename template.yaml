@@ -13,7 +13,7 @@ Globals:
       Variables:
         SPRING_CLOUD_FUNCTION_DEFINITION: apiGatewayRouter
         SPRING_MAIN_WEB_APPLICATION_TYPE: none
-        MAIN_CLASS: com.ffresco.pricelist.PriceListLambdaApplication
+        MAIN_CLASS: com.ffresco.totem.TotemLambdaApplication
         ENVIRONMENT: !Ref Environment
         RELEASE_VERSION: !Ref ReleaseVersion
         TOTEM_CORE_TABLE_NAME: !Ref TotemCoreTable
@@ -128,3 +128,7 @@ Outputs:
   TotemCoreTableArn:
     Description: DynamoDB table ARN
     Value: !GetAtt TotemCoreTable.Arn
+
+  GetCatalogVersionUrl:
+    Description: Example catalog version endpoint
+    Value: !Sub https://${PriceListHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/branches/branch-001/catalog/version

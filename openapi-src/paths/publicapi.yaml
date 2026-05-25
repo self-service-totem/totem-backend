@@ -1,0 +1,79 @@
+/public/menu:
+  get:
+    tags:
+    - Public Menu
+    summary: Get the public menu for a table
+    description: Returns the available menu (categories with available products only)
+      for the branch associated with the given public table id. Used by customers
+      who scan a QR code at a table.
+    operationId: getPublicMenu
+    x-amazon-apigateway-integration:
+      type: aws_proxy
+      httpMethod: POST
+      uri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+      payloadFormatVersion: '2.0'
+    parameters:
+    - name: tableId
+      in: query
+      required: true
+      description: Public table identifier (the value encoded in the QR code).
+      schema:
+        type: string
+      example: tbl-public-001
+    responses:
+      '200':
+        description: Public menu found
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/PublicMenuDocument'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalServerError'
+/public/menu/products/{productId}:
+  get:
+    tags:
+    - Public Menu
+    summary: Get a public product detail
+    description: Returns one product visible in the public menu for the table associated
+      with the given public table id. Returns 404 if the product is not part of the
+      available menu for that table.
+    operationId: getPublicProductDetail
+    x-amazon-apigateway-integration:
+      type: aws_proxy
+      httpMethod: POST
+      uri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PriceListFunction.Arn}/invocations
+      payloadFormatVersion: '2.0'
+    parameters:
+    - name: productId
+      in: path
+      required: true
+      description: Product identifier.
+      schema:
+        type: string
+      example: prd-001
+    - name: tableId
+      in: query
+      required: true
+      description: Public table identifier (the value encoded in the QR code).
+      schema:
+        type: string
+      example: tbl-public-001
+    responses:
+      '200':
+        description: Public product found
+        content:
+          application/vnd.api+json:
+            schema:
+              $ref: '#/components/schemas/PublicProductDocument'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalServerError'

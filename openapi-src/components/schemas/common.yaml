@@ -1,0 +1,59 @@
+HealthDocument:
+  type: object
+  required:
+  - data
+  properties:
+    data:
+      $ref: '#/components/schemas/HealthResource'
+HealthResource:
+  type: object
+  required:
+  - type
+  - id
+  - attributes
+  properties:
+    type:
+      type: string
+      example: health
+    id:
+      type: string
+      example: current
+    attributes:
+      $ref: '#/components/schemas/HealthAttributes'
+HealthAttributes:
+  type: object
+  required:
+  - status
+  properties:
+    status:
+      type: string
+      example: ok
+ErrorDocument:
+  type: object
+  required:
+  - errors
+  properties:
+    errors:
+      type: array
+      items:
+        $ref: '#/components/schemas/JsonApiError'
+JsonApiError:
+  type: object
+  required:
+  - status
+  - title
+  - detail
+  properties:
+    status:
+      type: string
+      example: '400'
+    code:
+      type: string
+      description: Application-specific error code for clients to branch on.
+      example: PUBLIC_TABLE_NOT_FOUND
+    title:
+      type: string
+      example: Bad Request
+    detail:
+      type: string
+      example: Path parameter 'priceListId' is required
