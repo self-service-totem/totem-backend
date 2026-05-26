@@ -66,35 +66,133 @@ openapi-bundle:
 package: openapi-bundle
 	mvn clean package
 
-##### Seccion dedicada a git #####
-
 sam-build: openapi-bundle
 	sam build
 
-# Check auth status using the ffresco GH CLI config profile.
-gh-ffresco-status:
-	GH_CONFIG_DIR=$$HOME/.config/gh-ffresco gh auth status
 
-# Create a PR using variables passed at execution time.
-# Usage:
-# make gh-pr-create HEAD=feature/TOTEM-1-public-menu BODY_FILE=docs/tickets/generated/TOTEM-1-public-menu.md TITLE="TOTEM-1 Public Menu"
-# Optional:
-# BASE=develop GH_CONFIG_DIR_PATH=$$HOME/.config/gh-ffresco
+# *****Seccion dedicada a git *****#
+GH_CONFIG_DIR_PATH ?= $(HOME)/.config/gh-ffresco
+PROJECT_OWNER ?= self-service-totem
+PROJECT_NUMBER ?= 1
 
-gh-pr-create:
-	@if [ -z "$(HEAD)" ]; then echo "Missing HEAD. Usage: make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop]"; exit 1; fi
-	@if [ -z "$(BODY_FILE)" ]; then echo "Missing BODY_FILE. Usage: make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop]"; exit 1; fi
+# Shows current gh authentication status using the project-specific config.
+gh-auth-status:
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh auth status
+
+# Login gh using the project-specific config.
+gh-auth-login:
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh auth login
+
+# Refresh gh auth adding GitHub Projects scope.
+gh-auth-refresh-project:
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh auth refresh -s project
+
+# Lists GitHub Projects for the configured owner.
+gh-project-list:
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh project list --owner "$(PROJECT_OWNER)"
+
+# Creates a draft item directly in a GitHub Project.
+# Title is derived from BODY_FILE name.
+# Body is the content of BODY_FILE.
+GH_CONFIG_DIR_PATH ?= $(HOME)/.config/gh-ffresco
+PROJECT_OWNER ?= self-service-totem
+PROJECT_NUMBER ?= 1
+REPO ?= self-service-totem/totem-backend
+
+# Creates a real GitHub issue from a markdown file and adds it to the GitHub Project.
+# Title is derived from BODY_FILE name.
+# Body is the content of BODY_FILE.
+gh-ticket-create:
+	@if [ -z "$(BODY_FILE)" ]; then echo "Missing BODY_FILE. Usage: make gh-ticket-create BODY_FILE=<file>"; exit 1; fi
 	@if [ ! -f "$(BODY_FILE)" ]; then echo "BODY_FILE not found: $(BODY_FILE)"; exit 1; fi
-	GH_CONFIG_DIR=$${GH_CONFIG_DIR_PATH:-$$HOME/.config/gh-ffresco} gh pr create \
-		--base $(if $(BASE),$(BASE),develop) \
-		--head $(HEAD) \
-		$(if $(TITLE),--title "$(TITLE)",) \
-		--body-file $(BODY_FILE)
+	@TITLE=$$(basename "$(BODY_FILE)" .md | sed -E 's/^([A-Za-z]+)-([0-9]+)-/\1-\2 /; s/-/ /g'); \
+	echo "Creating GitHub Issue:"; \
+	echo "  Repo: $(REPO)"; \
+	echo "  Title: $$TITLE"; \
+	echo "  Body file: $(BODY_FILE)"; \
+	ISSUE_URL=$$(GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh issue create \
+		--repo "$(REPO)" \
+		--title "$$TITLE" \
+		--body-file "$(BODY_FILE)"); \
+	echo "Issue created: $$ISSUE_URL"; \
+	ISSUE_NUMBER=$$(basename "$$ISSUE_URL"); \
+	echo "$$ISSUE_NUMBER" > docs/tickets/generated/last-ticket-number.txt; \
+	echo "$$ISSUE_URL" > docs/tickets/generated/last-ticket-url.txt; \
+	echo "Ticket number: $$ISSUE_NUMBER"; \
+	echo "Ticket URL saved to docs/tickets/generated/last-ticket-url.txt"; \
+	echo "Adding issue to GitHub Project:"; \
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh project item-add "$(PROJECT_NUMBER)" \
+		--owner "$(PROJECT_OWNER)" \
+		--url "$$ISSUE_URL"; \
+	echo "Added to Project: https://github.com/orgs/$(PROJECT_OWNER)/projects/$(PROJECT_NUMBER)"; \
+	echo ""; \
+	echo "Suggested branch:"; \
+	echo "git checkout -b  feature/$$ISSUE_NUMBER-$$(basename "$(BODY_FILE)" .md | sed -E 's/^([A-Za-z]+)-([0-9]+)-//')"
 
-# Help: prints examples to invoke gh-pr-create.
-gh-pr-create-help:
-	@echo "Usage:"
-	@echo "  make gh-pr-create HEAD=<branch> BODY_FILE=<file> [TITLE=<title>] [BASE=develop] [GH_CONFIG_DIR_PATH=<path>]"
+gh-ticket-create-help:
+	@echo "Creates a real GitHub issue and adds it to the GitHub Project."
+	@echo ""
+	@echo "First time setup:"
+	@echo "  make gh-auth-login"
+	@echo "  make gh-auth-refresh-project"
+	@echo "  make gh-project-list"
 	@echo ""
 	@echo "Example:"
-	@echo "  make gh-pr-create HEAD=feature/TOTEM-1-public-menu BODY_FILE=docs/tickets/generated/TOTEM-1-public-menu.md TITLE=\"TOTEM-1 Public Menu\""
+	@echo "  make gh-ticket-create BODY_FILE=docs/tickets/generated/public-menu.md"
+
+# Creates a GitHub PR.
+# Creates a GitHub PR from the current branch.
+# Base is always develop.
+# Head is the current git branch.
+# Title is derived from the branch last part.
+# Body file is derived from the branch last part.
+#
+# Example:
+# Current branch: feature/1-public-menu
+#
+# Uses:
+#   base:  develop
+#   head:  feature/1-public-menu
+#   title: 1 public menu
+#   body:  docs/tickets/generated/1-public-menu.md
+
+gh-pr-create:
+	@HEAD=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$HEAD" = "HEAD" ]; then echo "You are in detached HEAD state"; exit 1; fi; \
+	if [ "$$HEAD" = "main" ] || [ "$$HEAD" = "develop" ]; then echo "Refusing to create PR from protected branch: $$HEAD"; exit 1; fi; \
+	BRANCH_NAME=$$(basename "$$HEAD"); \
+	BODY_FILE="docs/tickets/generated/$$BRANCH_NAME.md"; \
+	TITLE=$$(echo "$$BRANCH_NAME" | sed -E 's/-/ /g'); \
+	if [ ! -f "$$BODY_FILE" ]; then echo "BODY_FILE not found: $$BODY_FILE"; exit 1; fi; \
+	echo "Creating GitHub PR:"; \
+	echo "  Base: develop"; \
+	echo "  Head: $$HEAD"; \
+	echo "  Title: $$TITLE"; \
+	echo "  Body file: $$BODY_FILE"; \
+	GH_CONFIG_DIR="$(GH_CONFIG_DIR_PATH)" gh pr create \
+		--base develop \
+		--head "$$HEAD" \
+		--title "$$TITLE" \
+		--body-file "$$BODY_FILE"
+
+gh-pr-create-help:
+	@echo "Creates a GitHub pull request from the current branch."
+	@echo ""
+	@echo "Rules:"
+	@echo "  Base branch is always: develop"
+	@echo "  Head branch is detected from the current git branch"
+	@echo "  Title is generated from the branch last part"
+	@echo "  Body file is generated from the branch last part"
+	@echo ""
+	@echo "Expected branch pattern:"
+	@echo "  feature/1-public-menu"
+	@echo ""
+	@echo "Expected body file:"
+	@echo "  docs/tickets/generated/1-public-menu.md"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make gh-pr-create"
+	@echo ""
+	@echo "Example:"
+	@echo "  git checkout feature/1-public-menu"
+	@echo "  make gh-pr-create"
