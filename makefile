@@ -94,9 +94,6 @@ gh-project-list:
 # Creates a draft item directly in a GitHub Project.
 # Title is derived from BODY_FILE name.
 # Body is the content of BODY_FILE.
-GH_CONFIG_DIR_PATH ?= $(HOME)/.config/gh-ffresco
-PROJECT_OWNER ?= self-service-totem
-PROJECT_NUMBER ?= 1
 REPO ?= self-service-totem/totem-backend
 
 # Creates a real GitHub issue from a markdown file and adds it to the GitHub Project.
