@@ -67,6 +67,18 @@ curl http://localhost:8080/price-lists/default
 curl 'http://localhost:8080/public/menu?tableId=table-public-001'
 ```
 
+## Swagger UI local
+
+Para probar endpoints desde el browser sin Postman/curl, con el server local corriendo:
+
+```text
+http://localhost:8080/docs
+```
+
+Sirve Swagger UI (vía CDN) apuntando al `openapi.yaml` ya bundleado (`http://localhost:8080/openapi.yaml`), y el botón "Try it out" ejecuta requests reales contra `LocalApiController`.
+
+Solo existe bajo el profile `local` (`LocalSwaggerUiController`, `@Profile("local")`). Nunca se activa en Lambda.
+
 ## Qué actualizar cuando agregás un endpoint
 
 ### 1. OpenAPI

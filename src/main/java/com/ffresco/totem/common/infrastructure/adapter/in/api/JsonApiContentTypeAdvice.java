@@ -18,6 +18,9 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
  * error responses, closing the gap on success responses produced by Spring
  * Cloud Function Web (the local {@code mvn -Plocal spring-boot:run} entry
  * point). Inert under {@code web-application-type: none} (Lambda).</p>
+ *
+ * <p>Skips {@link LocalSwaggerUiController}, whose responses (HTML page, raw
+ * OpenAPI YAML) are not JSON:API and must keep their own content type.</p>
  */
 @RestControllerAdvice
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -27,7 +30,7 @@ public class JsonApiContentTypeAdvice implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
-        return true;
+        return returnType.getContainingClass() != LocalSwaggerUiController.class;
     }
 
     @Override

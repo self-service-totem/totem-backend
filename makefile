@@ -3,8 +3,16 @@ set-up-env-local:
 	export DYNAMODB_ENDPOINT=http://localhost:8000
 	export TOTEM_CORE_TABLE_NAME=totem-core-local
 
+.PHONY: dynamo-up-local dynamo-down dynamo-admin
+
 dynamo-up-local:
 	docker compose up -d dynamodb-local
+
+dynamo-down:
+	docker compose stop dynamodb-local
+
+dynamo-admin:
+	DYNAMO_ENDPOINT=http://localhost:8000 dynamodb-admin
 
 dynamo-list-loal:
 	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
@@ -193,3 +201,4 @@ gh-pr-create-help:
 	@echo "Example:"
 	@echo "  git checkout feature/1-public-menu"
 	@echo "  make gh-pr-create"
+
