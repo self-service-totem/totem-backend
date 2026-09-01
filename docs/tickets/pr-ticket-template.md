@@ -194,3 +194,13 @@ GSI1SK = ...
 - [ ] `mvn test` passes.
 - [ ] No AWS/Spring/DynamoDB dependency in domain tests.
 - [ ] No business logic in route handlers, mappers, adapters or configs.
+
+## Frontend usage
+
+This endpoint supports the following frontend screen or flow:
+
+- Screen:
+- User action:
+- Data needed by the UI:
+- Expected UI behavior after success:
+- Expected UI behavior after error:

@@ -3,8 +3,16 @@ set-up-env-local:
 	export DYNAMODB_ENDPOINT=http://localhost:8000
 	export TOTEM_CORE_TABLE_NAME=totem-core-local
 
+.PHONY: dynamo-up-local dynamo-down dynamo-admin
+
 dynamo-up-local:
 	docker compose up -d dynamodb-local
+
+dynamo-down:
+	docker compose stop dynamodb-local
+
+dynamo-admin:
+	DYNAMO_ENDPOINT=http://localhost:8000 dynamodb-admin
 
 dynamo-list-loal:
 	AWS_ACCESS_KEY_ID=dummy AWS_SECRET_ACCESS_KEY=dummy \
@@ -94,9 +102,6 @@ gh-project-list:
 # Creates a draft item directly in a GitHub Project.
 # Title is derived from BODY_FILE name.
 # Body is the content of BODY_FILE.
-GH_CONFIG_DIR_PATH ?= $(HOME)/.config/gh-ffresco
-PROJECT_OWNER ?= self-service-totem
-PROJECT_NUMBER ?= 1
 REPO ?= self-service-totem/totem-backend
 
 # Creates a real GitHub issue from a markdown file and adds it to the GitHub Project.
@@ -196,3 +201,4 @@ gh-pr-create-help:
 	@echo "Example:"
 	@echo "  git checkout feature/1-public-menu"
 	@echo "  make gh-pr-create"
+

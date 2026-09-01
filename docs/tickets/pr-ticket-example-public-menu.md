@@ -189,3 +189,20 @@ SK = MENU#PUBLIC
 - [ ] DynamoDB access patterns follow `docs/03-data-model.md`.
 - [ ] Gherkin scenarios covered by tests.
 - [ ] `mvn test` passes.
+
+## Frontend usage
+
+Screen:
+- Public menu opened from table QR.
+
+User action:
+- Customer opens the menu.
+
+Data needed by the UI:
+- Restaurant context, table context, categories, products, prices, availability and images.
+
+Expected UI behavior after success:
+- The frontend renders the menu grouped by category.
+
+Expected UI behavior after error:
+- If table is not found or inactive, the frontend shows a friendly unavailable-menu message.
